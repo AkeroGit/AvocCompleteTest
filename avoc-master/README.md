@@ -80,8 +80,8 @@ Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinn
 After prerequisites are in place, install AVoc into any target folder with one command:
 
 ```sh
-git clone https://github.com/develOseven/avoc
-cd avoc
+git clone https://github.com/AkeroGit/AvocCompleteTest
+cd AvocCompleteTest/avoc-master
 ./install.sh --prefix "$HOME/.local/opt/avoc"
 ```
 
@@ -218,3 +218,13 @@ It allows to work on the voice conversion library.
     "module": "main",
 }
 ```
+
+## Maintainer note: repository metadata
+
+Repository branding/URLs are centralized in `repo-config.env`.
+
+When this repo is renamed or moved:
+1. Edit `repo-config.env`.
+2. Run `python scripts/sync_repo_metadata.py` to refresh README and package URLs.
+3. Keep `voiceconversion-master/pyproject.toml` URLs upstream unless you intentionally fork/publish that package identity.
+4. Commit the updated generated files.
