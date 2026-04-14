@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         self.passThroughAction.toggled.connect(
             lambda checked: self.showTrayMessage(
                 self.windowTitle(),
-                f"Pass Through {"On" if checked else "Off"}",
+                "Pass Through " + ("On" if checked else "Off"),
             )
         )
         self.windowAreaWidget.passThroughButton.setDefaultAction(self.passThroughAction)
