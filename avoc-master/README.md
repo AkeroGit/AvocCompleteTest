@@ -35,6 +35,10 @@ Open Source and Free for modification.
 
 # Installation
 
+> **Portable install (recommended):**  
+> Linux: `./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts`  
+> Windows (PowerShell): `.\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc" -NoShortcuts`
+
 ## Canonical install layout
 
 AVoc now supports a single install root (`AVOC_HOME`) with this layout:
@@ -53,27 +57,7 @@ The `bin/avoc` launcher sets:
 
 and redirects runtime write locations (`QSettings`, model storage, cache/state homes) into `<root>/data`.
 
-## For Arch-based Linux Distributions - from AUR
-
-No cloning of this repo needed.
-
-```
-yay -S avoc
-```
-
-or for Manjaro
-
-```
-pamac build avoc
-```
-
-Launch from the menu or by running:
-
-```sh
-gio launch /usr/share/applications/AVoc.desktop
-```
-
-## For other Linuxes
+## Portable installer (Linux and Windows)
 
 Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinned dependencies.
 
@@ -82,18 +66,6 @@ After prerequisites are in place, install AVoc into any target folder with one c
 ```sh
 git clone https://github.com/AkeroGit/AvocCompleteTest
 cd AvocCompleteTest/avoc-master
-./install.sh --prefix "$HOME/.local/opt/avoc"
-```
-
-Optionally create a desktop shortcut:
-
-```sh
-./install.sh --prefix "$HOME/.local/opt/avoc" --desktop-shortcut
-```
-
-For pure portability (recommended), explicitly disable desktop/start-menu add-ons:
-
-```sh
 ./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts
 ```
 
@@ -104,12 +76,6 @@ $HOME/.local/opt/avoc/bin/avoc
 ```
 
 For Windows PowerShell:
-
-```powershell
-.\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc"
-```
-
-You can also explicitly keep the install fully portable with:
 
 ```powershell
 .\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc" -NoShortcuts
