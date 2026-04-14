@@ -125,23 +125,31 @@ Both installers run preflight checks (Python 3.12.x, `venv`, and package-index c
 
 ## Uninstall modes
 
-### 1) Pure portable install (no shortcuts)
+### 1) Portable delete-only
 
-Delete the install root directory (`<root>`).
+If you installed with `--no-shortcuts` / `-NoShortcuts`, AVoc is fully portable.
+Remove it by deleting the install root directory (`<root>`).
 
-### 2) Install with shortcuts
+### 2) Integrated uninstall command
 
-Use the helper script generated at `<root>/bin/remove-shortcuts` (Linux) or
-`<root>\bin\remove-shortcuts.cmd` (Windows), then remove `<root>`.
+For installs that may have external shortcut artifacts, run the generated helper:
 
-Shortcut paths created by the installers are also recorded in
-`<root>/install-manifest.txt`, so they can be removed manually if preferred.
+- Linux/macOS shell: `<root>/bin/uninstall`
+- Windows cmd: `<root>\bin\uninstall.cmd`
+- Windows PowerShell: `<root>\bin\uninstall.ps1`
 
-If you also copied desktop/icon files into `~/.local/share`, remove them too:
+The helper prompts for confirmation, removes all paths listed in
+`<root>/install-manifest.txt` (safe if already missing), and then deletes
+`<root>` in one command.
+
+To skip the prompt in automation:
 
 ```sh
-rm ~/.local/share/applications/AVoc.desktop ~/.local/share/icons/hicolor/scalable/apps/AVoc.svg
-rm -rf <root>
+<root>/bin/uninstall --yes
+```
+
+```powershell
+<root>\bin\uninstall.ps1 -Yes
 ```
 
 ## (Optional) Virtual Microphone
