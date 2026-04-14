@@ -166,7 +166,7 @@ Run:
 (Optional) Get sources of the voice conversion library and install it in developer mode:
 
 ```sh
-(cd .. && git clone https://github.com/develOseven/voiceconversion)
+(cd .. && git clone <voiceconversion-repository-url>)
 source .venv/bin/activate
 pip uninstall voiceconversion
 pip install -e ../voiceconversion --config-settings editable_mode=strict
@@ -194,3 +194,4 @@ When this repo is renamed or moved:
 2. Run `python scripts/sync_repo_metadata.py` to refresh README and package URLs.
 3. Keep `voiceconversion-master/pyproject.toml` URLs upstream unless you intentionally fork/publish that package identity.
 4. Commit the updated generated files.
+5. Run `./scripts/check_metadata_consistency.sh` before opening a PR.
