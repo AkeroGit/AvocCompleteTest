@@ -5,10 +5,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
 NO_SHORTCUTS=0
+SKIP_CONNECTIVITY_CHECK=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check]
 
 Installs AVoc into an isolated prefix:
   <prefix>/bin     launchers
@@ -20,6 +21,8 @@ Options:
   --prefix <folder>     Target install folder (required)
   --desktop-shortcut    Also create a .desktop launcher in ~/.local/share/applications
   --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
+  --skip-connectivity-check
+                        Skip the PyPI connectivity preflight check before pip install
   -h, --help            Show this help
 USAGE
 }
@@ -37,6 +40,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-shortcuts)
       NO_SHORTCUTS=1
+      shift
+      ;;
+    --skip-connectivity-check)
+      SKIP_CONNECTIVITY_CHECK=1
       shift
       ;;
     -h|--help)
@@ -57,6 +64,49 @@ if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
   exit 1
 fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  cat >&2 <<'ERR'
+error: python3 executable not found.
+remediation: install Python 3.12.x and ensure python3 is on PATH, then rerun installer.
+ERR
+  exit 1
+fi
+
+PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')"
+if ! python3 -c 'import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)'; then
+  cat >&2 <<ERR
+error: incompatible Python version detected (${PYTHON_VERSION}).
+remediation: install Python 3.12.x and make it the default python3 for this shell.
+ERR
+  exit 1
+fi
+
+if ! python3 -c 'import venv'; then
+  cat >&2 <<'ERR'
+error: Python "venv" module is unavailable.
+remediation: install your distro's venv package (for example: python3-venv / python312-venv) and rerun.
+ERR
+  exit 1
+fi
+
+CONNECTIVITY_STATUS="skipped"
+if [[ "${SKIP_CONNECTIVITY_CHECK}" -eq 0 ]]; then
+  if python3 -c 'import socket; s=socket.create_connection(("pypi.org", 443), timeout=5); s.close()'; then
+    CONNECTIVITY_STATUS="ok"
+  else
+    cat >&2 <<'ERR'
+error: cannot reach pypi.org:443 (offline or blocked network).
+remediation: connect to the internet, configure proxy/firewall access for pip, or rerun with --skip-connectivity-check if you have local/wheel sources prepared.
+ERR
+    exit 1
+  fi
+fi
+
+echo "Preflight summary:"
+echo "  Python        : ${PYTHON_VERSION} (compatible)"
+echo "  venv module   : available"
+echo "  Connectivity  : ${CONNECTIVITY_STATUS}"
 
 PREFIX="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$PREFIX")"
 VENV_DIR="${PREFIX}/.venv"

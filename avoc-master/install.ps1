@@ -5,7 +5,9 @@ param(
 
     [switch]$DesktopShortcut,
 
-    [switch]$NoShortcuts
+    [switch]$NoShortcuts,
+
+    [switch]$SkipConnectivityCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,6 +24,42 @@ New-Item -ItemType Directory -Force -Path $ResolvedPrefix, $BinDir, $DataDir | O
 if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
 }
+
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw @'
+error: python executable not found.
+remediation: install Python 3.12.x and ensure "python" is available on PATH, then rerun installer.
+'@
+}
+
+$PythonVersion = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')").Trim()
+& python -c "import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)"
+if ($LASTEXITCODE -ne 0) {
+    throw "error: incompatible Python version detected ($PythonVersion).`nremediation: install Python 3.12.x and ensure it is first on PATH."
+}
+
+& python -c "import venv"
+if ($LASTEXITCODE -ne 0) {
+    throw 'error: Python "venv" module is unavailable.
+remediation: reinstall Python with venv support enabled, then rerun installer.'
+}
+
+$ConnectivityStatus = 'skipped'
+if (-not $SkipConnectivityCheck) {
+    try {
+        Invoke-WebRequest -Method Head -Uri 'https://pypi.org/simple/' -TimeoutSec 5 | Out-Null
+        $ConnectivityStatus = 'ok'
+    }
+    catch {
+        throw 'error: cannot reach https://pypi.org/simple/ (offline or blocked network).
+remediation: connect to the internet, configure proxy/firewall access for pip, or rerun with -SkipConnectivityCheck if local package sources are prepared.'
+    }
+}
+
+Write-Host 'Preflight summary:'
+Write-Host "  Python        : $PythonVersion (compatible)"
+Write-Host '  venv module   : available'
+Write-Host "  Connectivity  : $ConnectivityStatus"
 
 python -m venv $VenvDir
 & (Join-Path $VenvDir 'Scripts\python.exe') -m pip install --upgrade pip

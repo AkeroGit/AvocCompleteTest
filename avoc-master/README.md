@@ -77,7 +77,7 @@ gio launch /usr/share/applications/AVoc.desktop
 
 Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinned dependencies.
 
-Install AVoc into any target folder:
+After prerequisites are in place, install AVoc into any target folder with one command:
 
 ```sh
 git clone https://github.com/develOseven/avoc
@@ -114,6 +114,8 @@ You can also explicitly keep the install fully portable with:
 ```powershell
 .\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc" -NoShortcuts
 ```
+
+Both installers run preflight checks (Python 3.12.x, `venv`, and package-index connectivity) before creating the virtual environment. If you're intentionally offline with local package sources, use `--skip-connectivity-check` (Linux) or `-SkipConnectivityCheck` (PowerShell).
 
 ## Uninstall modes
 
