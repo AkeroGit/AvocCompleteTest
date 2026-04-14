@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Prefix,
 
-    [switch]$DesktopShortcut
+    [switch]$DesktopShortcut,
+
+    [switch]$NoShortcuts
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,6 +18,10 @@ $BinDir = Join-Path $ResolvedPrefix 'bin'
 $DataDir = Join-Path $ResolvedPrefix 'data'
 
 New-Item -ItemType Directory -Force -Path $ResolvedPrefix, $BinDir, $DataDir | Out-Null
+
+if ($DesktopShortcut -and $NoShortcuts) {
+    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
 
 python -m venv $VenvDir
 & (Join-Path $VenvDir 'Scripts\python.exe') -m pip install --upgrade pip
@@ -68,6 +74,48 @@ powershell -ExecutionPolicy Bypass -File "%~dp0avoc.ps1" %*
 "@
 Set-Content -Path (Join-Path $BinDir 'avoc.cmd') -Value $CmdLauncher -NoNewline
 
+$ManifestPath = Join-Path $ResolvedPrefix 'install-manifest.txt'
+Set-Content -Path $ManifestPath -Value '' -NoNewline
+
+$RemoveShortcuts = @"
+`$ErrorActionPreference = 'Stop'
+`$ScriptDir = Split-Path -Parent `$MyInvocation.MyCommand.Path
+`$RootDir = [System.IO.Path]::GetFullPath((Join-Path `$ScriptDir '..'))
+`$Manifest = Join-Path `$RootDir 'install-manifest.txt'
+
+if (-not (Test-Path `$Manifest)) {
+    Write-Host "No install manifest found at `$Manifest. Nothing to remove."
+    exit 0
+}
+
+`$RemovedAny = `$false
+Get-Content `$Manifest | ForEach-Object {
+    `$ShortcutPath = `$_.Trim()
+    if ([string]::IsNullOrWhiteSpace(`$ShortcutPath)) {
+        return
+    }
+    if (Test-Path `$ShortcutPath) {
+        Remove-Item -Force `$ShortcutPath
+        Write-Host "Removed shortcut: `$ShortcutPath"
+        `$RemovedAny = `$true
+    }
+    else {
+        Write-Host "Shortcut already missing: `$ShortcutPath"
+    }
+}
+
+if (-not `$RemovedAny) {
+    Write-Host 'No shortcut files were removed.'
+}
+"@
+Set-Content -Path (Join-Path $BinDir 'remove-shortcuts.ps1') -Value $RemoveShortcuts -NoNewline
+
+$RemoveShortcutsCmd = @"
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0remove-shortcuts.ps1" %*
+"@
+Set-Content -Path (Join-Path $BinDir 'remove-shortcuts.cmd') -Value $RemoveShortcutsCmd -NoNewline
+
 $Metadata = [ordered]@{
     installer         = 'install.ps1'
     installed_at_utc  = (Get-Date).ToUniversalTime().ToString('s') + 'Z'
@@ -88,6 +136,7 @@ if ($DesktopShortcut) {
     $Shortcut.WorkingDirectory = $ResolvedPrefix
     $Shortcut.IconLocation = (Join-Path $AppDir 'src\avoc\AVoc.svg')
     $Shortcut.Save()
+    Set-Content -Path $ManifestPath -Value $ShortcutPath -NoNewline
     Write-Host "Created desktop shortcut: $ShortcutPath"
 }
 

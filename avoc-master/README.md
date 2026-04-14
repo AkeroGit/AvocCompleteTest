@@ -91,6 +91,12 @@ Optionally create a desktop shortcut:
 ./install.sh --prefix "$HOME/.local/opt/avoc" --desktop-shortcut
 ```
 
+For pure portability (recommended), explicitly disable desktop/start-menu add-ons:
+
+```sh
+./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts
+```
+
 Run with:
 
 ```sh
@@ -103,7 +109,25 @@ For Windows PowerShell:
 .\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc"
 ```
 
-To uninstall completely, delete the install root directory (`<root>`).
+You can also explicitly keep the install fully portable with:
+
+```powershell
+.\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc" -NoShortcuts
+```
+
+## Uninstall modes
+
+### 1) Pure portable install (no shortcuts)
+
+Delete the install root directory (`<root>`).
+
+### 2) Install with shortcuts
+
+Use the helper script generated at `<root>/bin/remove-shortcuts` (Linux) or
+`<root>\bin\remove-shortcuts.cmd` (Windows), then remove `<root>`.
+
+Shortcut paths created by the installers are also recorded in
+`<root>/install-manifest.txt`, so they can be removed manually if preferred.
 
 If you also copied desktop/icon files into `~/.local/share`, remove them too:
 
