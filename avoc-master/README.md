@@ -75,29 +75,32 @@ gio launch /usr/share/applications/AVoc.desktop
 
 ## For other Linuxes
 
-Requires `pyenv`, `update-desktop-database` and some build tools to be installed.
+Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinned dependencies.
 
-After that, install the voice changer into a local directory:
+Install AVoc into any target folder:
 
 ```sh
 git clone https://github.com/develOseven/avoc
 cd avoc
-pyenv local 3.12.3
-python -m venv .venv
-source .venv/bin/activate
-CMAKE_ARGS="-DCMAKE_POLICY_VERSION_MINIMUM=3.5" pip install . -r requirements-3.12.3.txt
-mkdir -p ~/.local/share/applications/
-cp -t ~/.local/share/applications/ src/avoc/AVoc.desktop
-echo "Path=$PWD" >> ~/.local/share/applications/AVoc.desktop
-mkdir -p ~/.local/share/icons/hicolor/scalable/apps/
-cp -t ~/.local/share/icons/hicolor/scalable/apps/ src/avoc/AVoc.svg
-update-desktop-database
+./install.sh --prefix "$HOME/.local/opt/avoc"
 ```
 
-Launch from the menu or by running:
+Optionally create a desktop shortcut:
 
 ```sh
-gio launch ~/.local/share/applications/AVoc.desktop
+./install.sh --prefix "$HOME/.local/opt/avoc" --desktop-shortcut
+```
+
+Run with:
+
+```sh
+$HOME/.local/opt/avoc/bin/avoc
+```
+
+For Windows PowerShell:
+
+```powershell
+.\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc"
 ```
 
 To uninstall completely, delete the install root directory (`<root>`).
