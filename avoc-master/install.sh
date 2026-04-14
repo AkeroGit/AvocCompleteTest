@@ -4,10 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
+NO_SHORTCUTS=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts]
 
 Installs AVoc into an isolated prefix:
   <prefix>/bin     launchers
@@ -18,6 +19,7 @@ Installs AVoc into an isolated prefix:
 Options:
   --prefix <folder>     Target install folder (required)
   --desktop-shortcut    Also create a .desktop launcher in ~/.local/share/applications
+  --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
   -h, --help            Show this help
 USAGE
 }
@@ -33,6 +35,10 @@ while [[ $# -gt 0 ]]; do
       CREATE_DESKTOP_SHORTCUT=1
       shift
       ;;
+    --no-shortcuts)
+      NO_SHORTCUTS=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -46,6 +52,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "${PREFIX}" ]] || { echo "error: --prefix is required" >&2; usage >&2; exit 1; }
+
+if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
+  echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
+  exit 1
+fi
 
 PREFIX="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$PREFIX")"
 VENV_DIR="${PREFIX}/.venv"
@@ -97,6 +108,40 @@ exec python -m main "\$@"
 LAUNCHER
 chmod +x "${BIN_DIR}/avoc"
 
+MANIFEST_PATH="${PREFIX}/install-manifest.txt"
+: > "${MANIFEST_PATH}"
+
+cat > "${BIN_DIR}/remove-shortcuts" <<REMOVE_SHORTCUTS
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="\$(cd -- "\${SCRIPT_DIR}/.." && pwd)"
+MANIFEST="\${ROOT_DIR}/install-manifest.txt"
+
+if [[ ! -f "\${MANIFEST}" ]]; then
+  echo "No install manifest found at \${MANIFEST}. Nothing to remove."
+  exit 0
+fi
+
+removed_any=0
+while IFS= read -r shortcut_path || [[ -n "\${shortcut_path}" ]]; do
+  [[ -n "\${shortcut_path}" ]] || continue
+  if [[ -e "\${shortcut_path}" ]]; then
+    rm -f "\${shortcut_path}"
+    echo "Removed shortcut: \${shortcut_path}"
+    removed_any=1
+  else
+    echo "Shortcut already missing: \${shortcut_path}"
+  fi
+done < "\${MANIFEST}"
+
+if [[ "\${removed_any}" -eq 0 ]]; then
+  echo "No shortcut files were removed."
+fi
+REMOVE_SHORTCUTS
+chmod +x "${BIN_DIR}/remove-shortcuts"
+
 cat > "${PREFIX}/install-metadata.json" <<META
 {
   "installer": "install.sh",
@@ -122,6 +167,7 @@ Categories=AudioVideo;Audio;
 Path=${PREFIX}
 DESKTOP
   chmod +x "${DESKTOP_FILE}"
+  printf '%s\n' "${DESKTOP_FILE}" > "${MANIFEST_PATH}"
   echo "Created desktop shortcut: ${DESKTOP_FILE}"
 fi
 
