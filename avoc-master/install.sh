@@ -161,7 +161,7 @@ chmod +x "${BIN_DIR}/avoc"
 MANIFEST_PATH="${PREFIX}/install-manifest.txt"
 : > "${MANIFEST_PATH}"
 
-cat > "${BIN_DIR}/remove-shortcuts" <<REMOVE_SHORTCUTS
+cat > "${BIN_DIR}/uninstall" <<UNINSTALL
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -169,28 +169,47 @@ SCRIPT_DIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="\$(cd -- "\${SCRIPT_DIR}/.." && pwd)"
 MANIFEST="\${ROOT_DIR}/install-manifest.txt"
 
-if [[ ! -f "\${MANIFEST}" ]]; then
-  echo "No install manifest found at \${MANIFEST}. Nothing to remove."
+if [[ ! -d "\${ROOT_DIR}" ]]; then
+  echo "Install root already missing: \${ROOT_DIR}"
   exit 0
 fi
 
-removed_any=0
-while IFS= read -r shortcut_path || [[ -n "\${shortcut_path}" ]]; do
-  [[ -n "\${shortcut_path}" ]] || continue
-  if [[ -e "\${shortcut_path}" ]]; then
-    rm -f "\${shortcut_path}"
-    echo "Removed shortcut: \${shortcut_path}"
-    removed_any=1
-  else
-    echo "Shortcut already missing: \${shortcut_path}"
+if [[ "\${1:-}" == "--yes" ]]; then
+  shift
+else
+  echo "This will remove shortcuts from \${MANIFEST} and then delete:"
+  echo "  \${ROOT_DIR}"
+  read -r -p "Type 'yes' to continue: " confirm
+  if [[ "\${confirm}" != "yes" ]]; then
+    echo "Cancelled."
+    exit 0
   fi
-done < "\${MANIFEST}"
+fi
+
+removed_any=0
+if [[ -f "\${MANIFEST}" ]]; then
+  while IFS= read -r shortcut_path || [[ -n "\${shortcut_path}" ]]; do
+    [[ -n "\${shortcut_path}" ]] || continue
+    if [[ -e "\${shortcut_path}" ]]; then
+      rm -f "\${shortcut_path}"
+      echo "Removed shortcut: \${shortcut_path}"
+      removed_any=1
+    else
+      echo "Shortcut already missing: \${shortcut_path}"
+    fi
+  done < "\${MANIFEST}"
+else
+  echo "No install manifest found at \${MANIFEST}. Skipping shortcut cleanup."
+fi
 
 if [[ "\${removed_any}" -eq 0 ]]; then
   echo "No shortcut files were removed."
 fi
-REMOVE_SHORTCUTS
-chmod +x "${BIN_DIR}/remove-shortcuts"
+
+rm -rf "\${ROOT_DIR}"
+echo "Removed install root: \${ROOT_DIR}"
+UNINSTALL
+chmod +x "${BIN_DIR}/uninstall"
 
 cat > "${PREFIX}/install-metadata.json" <<META
 {

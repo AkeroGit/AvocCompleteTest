@@ -168,44 +168,66 @@ Set-Content -Path (Join-Path $BinDir 'avoc.cmd') -Value $CmdLauncher -NoNewline
 $ManifestPath = Join-Path $ResolvedPrefix 'install-manifest.txt'
 Set-Content -Path $ManifestPath -Value '' -NoNewline
 
-$RemoveShortcuts = @"
+$Uninstall = @"
+param(
+    [switch]`$Yes
+)
+
 `$ErrorActionPreference = 'Stop'
 `$ScriptDir = Split-Path -Parent `$MyInvocation.MyCommand.Path
 `$RootDir = [System.IO.Path]::GetFullPath((Join-Path `$ScriptDir '..'))
 `$Manifest = Join-Path `$RootDir 'install-manifest.txt'
 
-if (-not (Test-Path `$Manifest)) {
-    Write-Host "No install manifest found at `$Manifest. Nothing to remove."
+if (-not (Test-Path `$RootDir -PathType Container)) {
+    Write-Host "Install root already missing: `$RootDir"
     exit 0
 }
 
+if (-not `$Yes) {
+    Write-Host "This will remove shortcuts from `$Manifest and then delete:"
+    Write-Host "  `$RootDir"
+    `$Confirmation = Read-Host "Type 'yes' to continue"
+    if (`$Confirmation -ne 'yes') {
+        Write-Host 'Cancelled.'
+        exit 0
+    }
+}
+
 `$RemovedAny = `$false
-Get-Content `$Manifest | ForEach-Object {
-    `$ShortcutPath = `$_.Trim()
-    if ([string]::IsNullOrWhiteSpace(`$ShortcutPath)) {
-        return
+if (Test-Path `$Manifest) {
+    Get-Content `$Manifest | ForEach-Object {
+        `$ShortcutPath = `$_.Trim()
+        if ([string]::IsNullOrWhiteSpace(`$ShortcutPath)) {
+            return
+        }
+        if (Test-Path `$ShortcutPath) {
+            Remove-Item -Force `$ShortcutPath
+            Write-Host "Removed shortcut: `$ShortcutPath"
+            `$RemovedAny = `$true
+        }
+        else {
+            Write-Host "Shortcut already missing: `$ShortcutPath"
+        }
     }
-    if (Test-Path `$ShortcutPath) {
-        Remove-Item -Force `$ShortcutPath
-        Write-Host "Removed shortcut: `$ShortcutPath"
-        `$RemovedAny = `$true
-    }
-    else {
-        Write-Host "Shortcut already missing: `$ShortcutPath"
-    }
+}
+else {
+    Write-Host "No install manifest found at `$Manifest. Skipping shortcut cleanup."
 }
 
 if (-not `$RemovedAny) {
     Write-Host 'No shortcut files were removed.'
 }
-"@
-Set-Content -Path (Join-Path $BinDir 'remove-shortcuts.ps1') -Value $RemoveShortcuts -NoNewline
 
-$RemoveShortcutsCmd = @"
-@echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0remove-shortcuts.ps1" %*
+Remove-Item -LiteralPath `$RootDir -Recurse -Force
+Write-Host "Removed install root: `$RootDir"
 "@
-Set-Content -Path (Join-Path $BinDir 'remove-shortcuts.cmd') -Value $RemoveShortcutsCmd -NoNewline
+Set-Content -Path (Join-Path $BinDir 'uninstall.ps1') -Value $Uninstall -NoNewline
+
+$UninstallCmd = @"
+@echo off
+powershell -ExecutionPolicy Bypass -File "%~dp0uninstall.ps1" %*
+"@
+Set-Content -Path (Join-Path $BinDir 'uninstall.cmd') -Value $UninstallCmd -NoNewline
 
 $Metadata = [ordered]@{
     installer         = 'install.ps1'
