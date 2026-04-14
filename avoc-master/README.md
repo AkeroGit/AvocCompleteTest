@@ -115,7 +115,13 @@ You can also explicitly keep the install fully portable with:
 .\install.ps1 -Prefix "$env:LOCALAPPDATA\AVoc" -NoShortcuts
 ```
 
-Both installers run preflight checks (Python 3.12.x, `venv`, and package-index connectivity) before creating the virtual environment. If you're intentionally offline with local package sources, use `--skip-connectivity-check` (Linux) or `-SkipConnectivityCheck` (PowerShell).
+Both installers run preflight checks (Python 3.12.x, `venv`, and package-index connectivity) before creating the virtual environment. On Windows, `install.ps1` resolves Python in this order: `py -3.12`, then `python`, and prints the resolved interpreter path/version before environment creation. If you're intentionally offline with local package sources, use `--skip-connectivity-check` (Linux) or `-SkipConnectivityCheck` (PowerShell).
+
+### Troubleshooting (Windows installer interpreter selection)
+
+- `install.ps1` aborts if the resolved interpreter is not Python 3.12.x.
+- If the wrong interpreter is selected, prefer running with the Python Launcher installed (`py`) and ensure `py -3.12` works from PowerShell.
+- If `py` is unavailable, update your `PATH` so `python` points to a Python 3.12.x install.
 
 ## Uninstall modes
 

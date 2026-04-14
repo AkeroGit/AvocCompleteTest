@@ -25,20 +25,72 @@ if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
 }
 
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+function Resolve-PythonInterpreter {
+    $Candidates = @(
+        @{
+            Name = 'py -3.12'
+            Command = 'py'
+            Args = @('-3.12')
+        },
+        @{
+            Name = 'python'
+            Command = 'python'
+            Args = @()
+        }
+    )
+
+    foreach ($Candidate in $Candidates) {
+        if (-not (Get-Command $Candidate.Command -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        try {
+            $Probe = & $Candidate.Command @($Candidate.Args + @('-c', "import sys, json; print(json.dumps({'executable': sys.executable, 'version': '.'.join(map(str, sys.version_info[:3]))}))"))
+            if ($LASTEXITCODE -ne 0) {
+                continue
+            }
+            $Resolved = $Probe.Trim() | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+
+        return @{
+            Name = $Candidate.Name
+            Launcher = $Candidate.Command
+            LauncherArgs = $Candidate.Args
+            Executable = $Resolved.executable
+            Version = $Resolved.version
+        }
+    }
+
+    return $null
+}
+
+$ResolvedPython = Resolve-PythonInterpreter
+if (-not $ResolvedPython) {
     throw @'
-error: python executable not found.
-remediation: install Python 3.12.x and ensure "python" is available on PATH, then rerun installer.
+error: no usable Python interpreter found.
+resolution order: py -3.12, then python.
+remediation: install Python 3.12.x and ensure either "py" or "python" is available on PATH, then rerun installer.
 '@
 }
 
-$PythonVersion = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')").Trim()
-& python -c "import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)"
+$PythonLauncher = $ResolvedPython.Launcher
+$PythonLauncherArgs = $ResolvedPython.LauncherArgs
+$PythonExecutable = $ResolvedPython.Executable
+$PythonVersion = $ResolvedPython.Version
+
+Write-Host "Resolved Python launcher : $($ResolvedPython.Name)"
+Write-Host "Resolved Python path     : $PythonExecutable"
+Write-Host "Resolved Python version  : $PythonVersion"
+
+& $PythonLauncher @($PythonLauncherArgs + @('-c', 'import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)'))
 if ($LASTEXITCODE -ne 0) {
-    throw "error: incompatible Python version detected ($PythonVersion).`nremediation: install Python 3.12.x and ensure it is first on PATH."
+    throw "error: incompatible Python version detected ($PythonVersion) from $PythonExecutable.`nremediation: install Python 3.12.x and rerun installer."
 }
 
-& python -c "import venv"
+& $PythonLauncher @($PythonLauncherArgs + @('-c', 'import venv'))
 if ($LASTEXITCODE -ne 0) {
     throw 'error: Python "venv" module is unavailable.
 remediation: reinstall Python with venv support enabled, then rerun installer.'
@@ -58,10 +110,11 @@ remediation: connect to the internet, configure proxy/firewall access for pip, o
 
 Write-Host 'Preflight summary:'
 Write-Host "  Python        : $PythonVersion (compatible)"
+Write-Host "  Python path   : $PythonExecutable"
 Write-Host '  venv module   : available'
 Write-Host "  Connectivity  : $ConnectivityStatus"
 
-python -m venv $VenvDir
+& $PythonLauncher @($PythonLauncherArgs + @('-m', 'venv', $VenvDir))
 & (Join-Path $VenvDir 'Scripts\python.exe') -m pip install --upgrade pip
 & (Join-Path $VenvDir 'Scripts\pip.exe') install -r (Join-Path $ScriptDir 'requirements-3.12.3.txt')
 
