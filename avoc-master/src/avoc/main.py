@@ -510,7 +510,11 @@ class VoiceChangerManager(QObject):
 
 
 def getAppLocalDataLocation() -> str:
-    """Get the path where the voice models are stored and pretrained weights are loaded."""
+    """Get the directory used by AVoc for runtime data."""
+    avocDataDir = os.environ.get("AVOC_DATA_DIR")
+    if avocDataDir is not None and avocDataDir != "":
+        return avocDataDir
+
     appLocalDataLocation = QStandardPaths.writableLocation(
         QStandardPaths.StandardLocation.AppLocalDataLocation
     )
@@ -542,6 +546,10 @@ class AudioHolder:
 
 
 def create() -> Tuple[VoiceCardsManager, VoiceChangerManager, AudioHolder]:
+
+    os.makedirs(getPretrainDir(), exist_ok=True)
+    os.makedirs(getModelDir(), exist_ok=True)
+    os.makedirs(getVoiceCardsDir(), exist_ok=True)
 
     importedModelInfoManager = ImportedModelInfoManager(getModelDir())
 
@@ -743,6 +751,18 @@ def deinitialize(audioHolder: AudioHolder):
 
 
 def main() -> None:
+    # Keep QSettings inside AVOC_DATA_DIR when it is provided.
+    avocDataDir = os.environ.get("AVOC_DATA_DIR")
+    if avocDataDir is not None and avocDataDir != "":
+        settingsDir = os.path.join(avocDataDir, "settings")
+        os.makedirs(settingsDir, exist_ok=True)
+        QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+        QSettings.setPath(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            settingsDir,
+        )
+
     app = QApplication(sys.argv)
     app.setDesktopFileName("AVoc")
     app.setOrganizationName("AVocOrg")
