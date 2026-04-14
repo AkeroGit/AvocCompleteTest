@@ -35,6 +35,24 @@ Open Source and Free for modification.
 
 # Installation
 
+## Canonical install layout
+
+AVoc now supports a single install root (`AVOC_HOME`) with this layout:
+
+```text
+<root>/bin     launchers (for example, bin/avoc)
+<root>/.venv   Python virtual environment
+<root>/app     package/runtime files
+<root>/data    models, pretrain, voice cards, settings, cache, logs
+```
+
+The `bin/avoc` launcher sets:
+
+- `AVOC_HOME=<root>`
+- `AVOC_DATA_DIR=<root>/data`
+
+and redirects runtime write locations (`QSettings`, model storage, cache/state homes) into `<root>/data`.
+
 ## For Arch-based Linux Distributions - from AUR
 
 No cloning of this repo needed.
@@ -82,10 +100,13 @@ Launch from the menu or by running:
 gio launch ~/.local/share/applications/AVoc.desktop
 ```
 
-To uninstall:
+To uninstall completely, delete the install root directory (`<root>`).
+
+If you also copied desktop/icon files into `~/.local/share`, remove them too:
 
 ```sh
 rm ~/.local/share/applications/AVoc.desktop ~/.local/share/icons/hicolor/scalable/apps/AVoc.svg
+rm -rf <root>
 ```
 
 ## (Optional) Virtual Microphone
@@ -130,7 +151,7 @@ pip install -r requirements-3.12.3.txt
 Run:
 
 ```sh
-python -m main
+./bin/avoc
 ```
 
 (Optional) Get sources of the voice conversion library and install it in developer mode:
