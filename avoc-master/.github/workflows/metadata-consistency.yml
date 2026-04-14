@@ -1,0 +1,20 @@
+name: Metadata Consistency
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  metadata-consistency:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: avoc-master
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run metadata consistency check
+        run: ./scripts/check_metadata_consistency.sh
