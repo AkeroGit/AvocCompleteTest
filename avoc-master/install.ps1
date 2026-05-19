@@ -8,6 +8,7 @@ param(
     [switch]$NoShortcuts,
 
     [switch]$SkipConnectivityCheck,
+    [switch]$SkipDoctor,
 
     [switch]$UseSystemPython,
 
@@ -240,6 +241,23 @@ Write-Host "  Connectivity  : $ConnectivityStatus"
 & $PythonLauncher @($PythonLauncherArgs + @('-m', 'venv', $VenvDir))
 & (Join-Path $VenvDir 'Scripts\python.exe') -m pip install --upgrade pip
 & (Join-Path $VenvDir 'Scripts\pip.exe') install -r (Join-Path $ScriptDir 'requirements-3.12.3.txt')
+
+if (-not $SkipDoctor) {
+    Write-Host 'Running AVoc doctor checks...'
+    Push-Location $ScriptDir
+    try {
+        & (Join-Path $VenvDir 'Scripts\python.exe') -m main --doctor
+        if ($LASTEXITCODE -ne 0) {
+            throw 'error: AVoc doctor validation failed after dependency installation.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+else {
+    Write-Warning 'Skipping AVoc doctor checks due to -SkipDoctor (advanced override).'
+}
 
 if (Test-Path $AppDir) {
     Remove-Item -Recurse -Force $AppDir

@@ -10,10 +10,11 @@ USE_SYSTEM_PYTHON=0
 INSTALL_MODE="installer-managed-python"
 PYTHON_RUNTIME_URL=""
 PYTHON_RUNTIME_SHA256=""
+SKIP_DOCTOR=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
 Installs AVoc into an isolated prefix:
   <prefix>/bin     launchers
@@ -28,6 +29,7 @@ Options:
   --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
+  --skip-doctor         Advanced override: skip post-install GPU/ONNX doctor validation
   --use-system-python   Developer override: use system python3 from PATH
   --python-runtime-url <url-or-file>
                         Override managed runtime source (https://... or file:///... or local file path)
@@ -54,6 +56,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-connectivity-check)
       SKIP_CONNECTIVITY_CHECK=1
+      shift
+      ;;
+    --skip-doctor)
+      SKIP_DOCTOR=1
       shift
       ;;
     --use-system-python)
@@ -263,6 +269,25 @@ mkdir -p "${PREFIX}" "${BIN_DIR}" "${DATA_DIR}"
 "${PYTHON_CMD}" -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/python" -m pip install --upgrade pip
 "${VENV_DIR}/bin/python" -m pip install -r "${SCRIPT_DIR}/requirements-3.12.3.txt"
+if [[ "${SKIP_DOCTOR}" -eq 0 ]]; then
+  echo "Running AVoc doctor checks..."
+  (
+    cd "${SCRIPT_DIR}"
+    "${VENV_DIR}/bin/python" -m main --doctor
+  ) || {
+    cat >&2 <<'ERR'
+error: AVoc doctor validation failed after dependency installation.
+remediation:
+  1) Verify NVIDIA driver compatibility (run: nvidia-smi).
+  2) Reboot after driver updates.
+  3) Reinstall dependencies and rerun installer.
+  4) Advanced override only: rerun installer with --skip-doctor.
+ERR
+    exit 1
+  }
+else
+  echo "warning: skipping AVoc doctor checks due to --skip-doctor"
+fi
 
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}"
