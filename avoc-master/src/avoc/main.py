@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shutil
 import signal
 import sys
 from contextlib import AbstractContextManager, contextmanager, nullcontext
@@ -72,7 +73,8 @@ from .windowarea import VoiceCardPlaceholderWidget, WindowAreaWidget
 
 PRETRAIN_DIR_NAME = "pretrain"
 MODEL_DIR_NAME = "model_dir"
-VOICE_CARDS_DIR_NAME = "voice_cards_dir"
+VOICE_CARDS_DIR_NAME = "voice_cards"
+LEGACY_VOICE_CARDS_DIR_NAME = "voice_cards_dir"
 
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
@@ -532,7 +534,17 @@ def getModelDir() -> str:
 
 
 def getVoiceCardsDir() -> str:
-    return os.path.join(getAppLocalDataLocation(), VOICE_CARDS_DIR_NAME)
+    appLocalDataDir = getAppLocalDataLocation()
+    voiceCardsDir = os.path.join(appLocalDataDir, VOICE_CARDS_DIR_NAME)
+    legacyVoiceCardsDir = os.path.join(appLocalDataDir, LEGACY_VOICE_CARDS_DIR_NAME)
+
+    if not os.path.exists(voiceCardsDir) and os.path.isdir(legacyVoiceCardsDir):
+        try:
+            shutil.move(legacyVoiceCardsDir, voiceCardsDir)
+        except shutil.Error:
+            shutil.copytree(legacyVoiceCardsDir, voiceCardsDir)
+
+    return voiceCardsDir
 
 
 def downloadPretrain():
