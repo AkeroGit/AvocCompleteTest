@@ -6,16 +6,19 @@ PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
 NO_SHORTCUTS=0
 SKIP_CONNECTIVITY_CHECK=0
+USE_SYSTEM_PYTHON=0
+INSTALL_MODE="installer-managed-python"
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--use-system-python]
 
 Installs AVoc into an isolated prefix:
   <prefix>/bin     launchers
   <prefix>/.venv   Python virtual environment
-  <prefix>/app     AVoc sources
-  <prefix>/data    writable runtime data
+  <prefix>/runtime/python managed CPython runtime (default mode)
+  <prefix>/app            AVoc sources
+  <prefix>/data           writable runtime data
 
 Options:
   --prefix <folder>     Target install folder (required)
@@ -23,6 +26,7 @@ Options:
   --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
+  --use-system-python   Developer override: use system python3 from PATH
   -h, --help            Show this help
 USAGE
 }
@@ -46,6 +50,11 @@ while [[ $# -gt 0 ]]; do
       SKIP_CONNECTIVITY_CHECK=1
       shift
       ;;
+    --use-system-python)
+      USE_SYSTEM_PYTHON=1
+      INSTALL_MODE="system-python"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -65,16 +74,73 @@ if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  cat >&2 <<'ERR'
+uname_s="$(uname -s)"
+uname_m="$(uname -m)"
+case "${uname_s}" in
+  Linux)
+    case "${uname_m}" in
+      x86_64) PLATFORM_TUPLE="linux-x86_64" ;;
+      aarch64|arm64) PLATFORM_TUPLE="linux-aarch64" ;;
+      *) echo "error: unsupported architecture: ${uname_m}" >&2; exit 1 ;;
+    esac
+    ;;
+  Darwin)
+    case "${uname_m}" in
+      x86_64) PLATFORM_TUPLE="macos-x86_64" ;;
+      arm64) PLATFORM_TUPLE="macos-arm64" ;;
+      *) echo "error: unsupported architecture: ${uname_m}" >&2; exit 1 ;;
+    esac
+    ;;
+  *) echo "error: unsupported platform: ${uname_s}" >&2; exit 1 ;;
+esac
+
+PYTHON_RUNTIME_VERSION="3.12.3"
+RUNTIME_ROOT_REL="runtime/python"
+PREFIX="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$PREFIX")"
+RUNTIME_DIR="${PREFIX}/${RUNTIME_ROOT_REL}"
+
+if [[ "${USE_SYSTEM_PYTHON}" -eq 0 ]]; then
+  case "${PLATFORM_TUPLE}" in
+    linux-x86_64)
+      RUNTIME_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-${PYTHON_RUNTIME_VERSION}+20240415-x86_64-unknown-linux-gnu-install_only.tar.gz"
+      RUNTIME_SHA256="4fa6442ac65cc95ea30ca521ac9d45ec6ff64d1d51f6066e26492876ac7e95d3"
+      ;;
+    linux-aarch64)
+      RUNTIME_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20240415/cpython-${PYTHON_RUNTIME_VERSION}+20240415-aarch64-unknown-linux-gnu-install_only.tar.gz"
+      RUNTIME_SHA256="8290fe2f1d7ebf2d2a1cd3d2ed89e7836b6bc4a4ecb63e08e33af16dd4df26f1"
+      ;;
+    *)
+      echo "error: installer-managed runtime not configured for ${PLATFORM_TUPLE}. Use --use-system-python." >&2
+      exit 1
+      ;;
+  esac
+  mkdir -p "${PREFIX}/runtime"
+  RUNTIME_ARCHIVE="${PREFIX}/runtime/cpython-${PYTHON_RUNTIME_VERSION}-${PLATFORM_TUPLE}.tar.gz"
+  curl -fsSL "${RUNTIME_URL}" -o "${RUNTIME_ARCHIVE}"
+  ACTUAL_SHA256="$(sha256sum "${RUNTIME_ARCHIVE}" | awk '{print $1}')"
+  [[ "${ACTUAL_SHA256}" == "${RUNTIME_SHA256}" ]] || {
+    echo "error: checksum verification failed for managed runtime." >&2
+    echo "expected: ${RUNTIME_SHA256}" >&2
+    echo "actual  : ${ACTUAL_SHA256}" >&2
+    exit 1
+  }
+  rm -rf "${RUNTIME_DIR}"
+  mkdir -p "${RUNTIME_DIR}"
+  tar -xzf "${RUNTIME_ARCHIVE}" -C "${RUNTIME_DIR}" --strip-components=1
+  PYTHON_CMD="${RUNTIME_DIR}/bin/python3"
+else
+  if ! command -v python3 >/dev/null 2>&1; then
+    cat >&2 <<'ERR'
 error: python3 executable not found.
 remediation: install Python 3.12.x and ensure python3 is on PATH, then rerun installer.
 ERR
-  exit 1
+    exit 1
+  fi
+  PYTHON_CMD="$(command -v python3)"
 fi
 
-PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')"
-if ! python3 -c 'import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)'; then
+PYTHON_VERSION="$("${PYTHON_CMD}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')"
+if ! "${PYTHON_CMD}" -c 'import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)'; then
   cat >&2 <<ERR
 error: incompatible Python version detected (${PYTHON_VERSION}).
 remediation: install Python 3.12.x and make it the default python3 for this shell.
@@ -82,7 +148,7 @@ ERR
   exit 1
 fi
 
-if ! python3 -c 'import venv'; then
+if ! "${PYTHON_CMD}" -c 'import venv'; then
   cat >&2 <<'ERR'
 error: Python "venv" module is unavailable.
 remediation: install your distro's venv package (for example: python3-venv / python312-venv) and rerun.
@@ -92,7 +158,7 @@ fi
 
 CONNECTIVITY_STATUS="skipped"
 if [[ "${SKIP_CONNECTIVITY_CHECK}" -eq 0 ]]; then
-  if python3 -c 'import socket; s=socket.create_connection(("pypi.org", 443), timeout=5); s.close()'; then
+  if "${PYTHON_CMD}" -c 'import socket; s=socket.create_connection(("pypi.org", 443), timeout=5); s.close()'; then
     CONNECTIVITY_STATUS="ok"
   else
     cat >&2 <<'ERR'
@@ -104,11 +170,13 @@ ERR
 fi
 
 echo "Preflight summary:"
+echo "  Install mode  : ${INSTALL_MODE}"
+echo "  Platform tuple: ${PLATFORM_TUPLE}"
 echo "  Python        : ${PYTHON_VERSION} (compatible)"
+echo "  Python path   : ${PYTHON_CMD}"
 echo "  venv module   : available"
 echo "  Connectivity  : ${CONNECTIVITY_STATUS}"
 
-PREFIX="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$PREFIX")"
 VENV_DIR="${PREFIX}/.venv"
 APP_DIR="${PREFIX}/app"
 BIN_DIR="${PREFIX}/bin"
@@ -116,9 +184,9 @@ DATA_DIR="${PREFIX}/data"
 
 mkdir -p "${PREFIX}" "${BIN_DIR}" "${DATA_DIR}"
 
-python3 -m venv "${VENV_DIR}"
+"${PYTHON_CMD}" -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-"${VENV_DIR}/bin/pip" install -r "${SCRIPT_DIR}/requirements-3.12.3.txt"
+"${VENV_DIR}/bin/python" -m pip install -r "${SCRIPT_DIR}/requirements-3.12.3.txt"
 
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}"
@@ -241,4 +309,6 @@ DESKTOP
 fi
 
 echo "Installed AVoc into ${PREFIX}"
+echo "Installer mode : ${INSTALL_MODE}"
+echo "Python path    : ${PYTHON_CMD}"
 echo "Run: ${BIN_DIR}/avoc"
