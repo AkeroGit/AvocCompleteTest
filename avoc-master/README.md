@@ -83,6 +83,43 @@ For Windows PowerShell:
 
 Both installers run preflight checks (Python 3.12.x, `venv`, and package-index connectivity) before creating the virtual environment. On Windows, `install.ps1` resolves Python in this order: `py -3.12`, then `python`, and prints the resolved interpreter path/version before environment creation. If you're intentionally offline with local package sources, use `--skip-connectivity-check` (Linux) or `-SkipConnectivityCheck` (PowerShell).
 
+### Managed runtime source overrides (enterprise / air-gapped)
+
+The installer-managed runtime is pinned to **Python 3.12.3** for deterministic installs.
+
+You can override where the runtime artifact comes from (internal mirror, local file share, removable media) and pin its checksum:
+
+- Linux: `--python-runtime-url` and `--python-runtime-sha256`
+- Windows PowerShell: `-PythonRuntimeUrl` and `-PythonRuntimeSha256`
+
+Examples:
+
+```sh
+./install.sh \
+  --prefix "$HOME/.local/opt/avoc" \
+  --python-runtime-url "https://artifacts.example.com/avoc/python/cpython-3.12.3-linux-x86_64.tar.gz" \
+  --python-runtime-sha256 "<sha256>" \
+  --no-shortcuts
+```
+
+```sh
+./install.sh \
+  --prefix "$HOME/.local/opt/avoc" \
+  --python-runtime-url "/mnt/media/cpython-3.12.3-linux-x86_64.tar.gz" \
+  --python-runtime-sha256 "<sha256>" \
+  --no-shortcuts
+```
+
+```powershell
+.\install.ps1 `
+  -Prefix "$env:LOCALAPPDATA\AVoc" `
+  -PythonRuntimeUrl "https://artifacts.example.com/avoc/python/python.3.12.3.nupkg" `
+  -PythonRuntimeSha256 "<sha256>" `
+  -NoShortcuts
+```
+
+When downloading over HTTP(S), installers use retry with exponential backoff and emit explicit remediation guidance if all attempts fail. Checksum mismatches hard-fail and require replacing the artifact with a trusted Python 3.12.3 build before re-running install.
+
 ### Troubleshooting (Windows installer interpreter selection)
 
 - `install.ps1` aborts if the resolved interpreter is not Python 3.12.x.

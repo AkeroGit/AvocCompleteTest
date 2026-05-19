@@ -9,7 +9,11 @@ param(
 
     [switch]$SkipConnectivityCheck,
 
-    [switch]$UseSystemPython
+    [switch]$UseSystemPython,
+
+    [string]$PythonRuntimeUrl,
+
+    [string]$PythonRuntimeSha256
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,12 +108,68 @@ if (-not $UseSystemPython) {
     if (-not $RuntimeMap.ContainsKey($PlatformTuple)) {
         throw "Managed runtime is not configured for platform tuple: $PlatformTuple"
     }
+    if ($PythonRuntimeUrl -and -not $PythonRuntimeSha256) {
+        throw 'error: -PythonRuntimeSha256 is required when -PythonRuntimeUrl is provided.'
+    }
+    if ($PythonRuntimeUrl) {
+        $RuntimeMap[$PlatformTuple] = @{
+            Url = $PythonRuntimeUrl
+            Sha256 = $PythonRuntimeSha256
+        }
+    }
     $RuntimeArchive = Join-Path $ResolvedPrefix "runtime\python-$RuntimeVersion-$PlatformTuple.nupkg"
     New-Item -ItemType Directory -Force -Path (Split-Path $RuntimeArchive -Parent), $RuntimeDir | Out-Null
-    Invoke-WebRequest -Uri $RuntimeMap[$PlatformTuple].Url -OutFile $RuntimeArchive
+    function Get-RuntimeArchiveWithRetry {
+        param(
+            [Parameter(Mandatory = $true)][string]$Source,
+            [Parameter(Mandatory = $true)][string]$Destination
+        )
+
+        if ($Source -match '^https?://') {
+            $maxAttempts = 4
+            $delaySec = 2
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri $Source -OutFile $Destination -TimeoutSec 60
+                    return
+                }
+                catch {
+                    if ($attempt -lt $maxAttempts) {
+                        Write-Warning "Runtime download attempt $attempt/$maxAttempts failed: $($_.Exception.Message). Retrying in $delaySec second(s)..."
+                        Start-Sleep -Seconds $delaySec
+                        $delaySec = $delaySec * 2
+                    }
+                }
+            }
+            throw @"
+error: failed to download Python runtime from $Source
+remediation: verify network/proxy access, or host the runtime on an internal mirror and pass:
+  -PythonRuntimeUrl <internal-url-or-local-file>
+  -PythonRuntimeSha256 <expected-sha256>
+"@
+        }
+
+        $localPath = $Source
+        if ($Source -like 'file://*') {
+            $localPath = $Source.Substring(7)
+        }
+        if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
+            throw "error: Python runtime file not found at $localPath`nremediation: provide a valid local file path or accessible URL via -PythonRuntimeUrl."
+        }
+        Copy-Item -LiteralPath $localPath -Destination $Destination -Force
+    }
+
+    Get-RuntimeArchiveWithRetry -Source $RuntimeMap[$PlatformTuple].Url -Destination $RuntimeArchive
     $ActualHash = (Get-FileHash -Algorithm SHA256 -Path $RuntimeArchive).Hash.ToLowerInvariant()
     if ($ActualHash -ne $RuntimeMap[$PlatformTuple].Sha256.ToLowerInvariant()) {
-        throw "error: runtime checksum verification failed. expected=$($RuntimeMap[$PlatformTuple].Sha256), actual=$ActualHash"
+        throw @"
+error: runtime checksum verification failed.
+expected=$($RuntimeMap[$PlatformTuple].Sha256)
+actual=$ActualHash
+remediation: do not continue with an unverified runtime.
+re-download the exact Python 3.12.3 runtime artifact from a trusted source,
+recompute SHA256, then rerun with -PythonRuntimeUrl and -PythonRuntimeSha256.
+"@
     }
     if (Test-Path $RuntimeDir) { Remove-Item -Recurse -Force $RuntimeDir }
     New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null

@@ -8,10 +8,12 @@ NO_SHORTCUTS=0
 SKIP_CONNECTIVITY_CHECK=0
 USE_SYSTEM_PYTHON=0
 INSTALL_MODE="installer-managed-python"
+PYTHON_RUNTIME_URL=""
+PYTHON_RUNTIME_SHA256=""
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--use-system-python]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
 Installs AVoc into an isolated prefix:
   <prefix>/bin     launchers
@@ -27,6 +29,10 @@ Options:
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
   --use-system-python   Developer override: use system python3 from PATH
+  --python-runtime-url <url-or-file>
+                        Override managed runtime source (https://... or file:///... or local file path)
+  --python-runtime-sha256 <sha256>
+                        Expected SHA256 for --python-runtime-url (required when overriding URL)
   -h, --help            Show this help
 USAGE
 }
@@ -54,6 +60,16 @@ while [[ $# -gt 0 ]]; do
       USE_SYSTEM_PYTHON=1
       INSTALL_MODE="system-python"
       shift
+      ;;
+    --python-runtime-url)
+      [[ $# -ge 2 ]] || { echo "error: --python-runtime-url requires a value" >&2; exit 1; }
+      PYTHON_RUNTIME_URL="$2"
+      shift 2
+      ;;
+    --python-runtime-sha256)
+      [[ $# -ge 2 ]] || { echo "error: --python-runtime-sha256 requires a value" >&2; exit 1; }
+      PYTHON_RUNTIME_SHA256="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -123,14 +139,65 @@ if [[ "${USE_SYSTEM_PYTHON}" -eq 0 ]]; then
       exit 1
       ;;
   esac
+  if [[ -n "${PYTHON_RUNTIME_URL}" && -z "${PYTHON_RUNTIME_SHA256}" ]]; then
+    echo "error: --python-runtime-sha256 is required when --python-runtime-url is provided." >&2
+    exit 1
+  fi
+  if [[ -n "${PYTHON_RUNTIME_URL}" ]]; then
+    RUNTIME_URL="${PYTHON_RUNTIME_URL}"
+    RUNTIME_SHA256="${PYTHON_RUNTIME_SHA256}"
+  fi
   mkdir -p "${PREFIX}/runtime"
   RUNTIME_ARCHIVE="${PREFIX}/runtime/cpython-${PYTHON_RUNTIME_VERSION}-${PLATFORM_TUPLE}.tar.gz"
-  curl -fsSL "${RUNTIME_URL}" -o "${RUNTIME_ARCHIVE}"
+
+  download_runtime_archive() {
+    local source="$1"
+    local destination="$2"
+    if [[ "${source}" =~ ^https?:// ]]; then
+      local attempt=1 max_attempts=4 delay=2
+      while [[ "${attempt}" -le "${max_attempts}" ]]; do
+        if curl -fL --connect-timeout 15 --retry 0 --silent --show-error "${source}" -o "${destination}"; then
+          return 0
+        fi
+        if [[ "${attempt}" -lt "${max_attempts}" ]]; then
+          echo "warning: runtime download attempt ${attempt}/${max_attempts} failed; retrying in ${delay}s..." >&2
+          sleep "${delay}"
+          delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+      done
+      cat >&2 <<ERR
+error: failed to download Python runtime from ${source}.
+remediation: verify network/proxy access, or host the runtime on an internal mirror and pass:
+  --python-runtime-url <internal-url-or-local-file>
+  --python-runtime-sha256 <expected-sha256>
+ERR
+      return 1
+    fi
+
+    local source_path="${source}"
+    if [[ "${source}" =~ ^file:// ]]; then
+      source_path="${source#file://}"
+    fi
+    if [[ ! -f "${source_path}" ]]; then
+      echo "error: Python runtime file not found at ${source_path}" >&2
+      echo "remediation: provide a valid local file path or accessible URL via --python-runtime-url." >&2
+      return 1
+    fi
+    cp -f "${source_path}" "${destination}"
+  }
+
+  download_runtime_archive "${RUNTIME_URL}" "${RUNTIME_ARCHIVE}"
   ACTUAL_SHA256="$(sha256sum "${RUNTIME_ARCHIVE}" | awk '{print $1}')"
   [[ "${ACTUAL_SHA256}" == "${RUNTIME_SHA256}" ]] || {
-    echo "error: checksum verification failed for managed runtime." >&2
+    echo "error: checksum verification failed for managed runtime archive." >&2
     echo "expected: ${RUNTIME_SHA256}" >&2
     echo "actual  : ${ACTUAL_SHA256}" >&2
+    cat >&2 <<'ERR'
+remediation: do not continue with an unverified runtime.
+re-download the exact Python 3.12.3 runtime artifact from a trusted source,
+recompute SHA256, then rerun with --python-runtime-url and --python-runtime-sha256.
+ERR
     exit 1
   }
   rm -rf "${RUNTIME_DIR}"
