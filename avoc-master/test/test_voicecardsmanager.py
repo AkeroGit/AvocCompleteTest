@@ -28,7 +28,7 @@ def modelDir(tmp_path):
 
 @pytest.fixture
 def voiceCardsDir(tmp_path):
-    d = tmp_path / "voice_cards_dir"
+    d = tmp_path / "voice_cards"
     d.mkdir()
     return str(d)
 
