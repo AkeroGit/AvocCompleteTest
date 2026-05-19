@@ -74,6 +74,15 @@ if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   exit 1
 fi
 
+if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
+  cat <<'WARN'
+warning: --desktop-shortcut creates an out-of-prefix desktop entry in ~/.local/share/applications.
+this artifact is tracked in install-manifest.txt and removed by bin/uninstall.
+WARN
+fi
+
+echo "Info: default installation does not modify global PATH. Use ${PREFIX}/bin/avoc directly."
+
 uname_s="$(uname -s)"
 uname_m="$(uname -m)"
 case "${uname_s}" in
@@ -218,6 +227,10 @@ export XDG_CACHE_HOME="\${AVOC_DATA_DIR}/cache"
 export XDG_STATE_HOME="\${AVOC_DATA_DIR}/logs"
 export TORCH_HOME="\${AVOC_DATA_DIR}/cache/torch"
 export HF_HOME="\${AVOC_DATA_DIR}/cache/huggingface"
+export HUGGINGFACE_HUB_CACHE="\${AVOC_DATA_DIR}/cache/huggingface/hub"
+export TRANSFORMERS_CACHE="\${AVOC_DATA_DIR}/cache/huggingface/transformers"
+export HF_DATASETS_CACHE="\${AVOC_DATA_DIR}/cache/huggingface/datasets"
+export PIP_CACHE_DIR="\${AVOC_DATA_DIR}/cache/pip"
 
 # shellcheck disable=SC1091
 source "\${AVOC_HOME}/.venv/bin/activate"
@@ -304,7 +317,7 @@ Categories=AudioVideo;Audio;
 Path=${PREFIX}
 DESKTOP
   chmod +x "${DESKTOP_FILE}"
-  printf '%s\n' "${DESKTOP_FILE}" > "${MANIFEST_PATH}"
+  printf '%s\n' "${DESKTOP_FILE}" >> "${MANIFEST_PATH}"
   echo "Created desktop shortcut: ${DESKTOP_FILE}"
 fi
 

@@ -28,6 +28,11 @@ if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
 }
 
+if ($DesktopShortcut) {
+    Write-Warning '-DesktopShortcut creates an out-of-prefix artifact on the Desktop. It is tracked in install-manifest.txt and removed by uninstall.'
+}
+Write-Host 'Info: default installation does not modify global PATH. Use <prefix>\bin\avoc.cmd directly.'
+
 function Get-PlatformTuple {
     if ($IsWindows) {
         switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
@@ -208,6 +213,10 @@ New-Item -ItemType Directory -Force -Path `$(Join-Path `$env:AVOC_DATA_DIR 'sett
 `$env:XDG_STATE_HOME = Join-Path `$env:AVOC_DATA_DIR 'logs'
 `$env:TORCH_HOME = Join-Path `$env:AVOC_DATA_DIR 'cache/torch'
 `$env:HF_HOME = Join-Path `$env:AVOC_DATA_DIR 'cache/huggingface'
+`$env:HUGGINGFACE_HUB_CACHE = Join-Path `$env:AVOC_DATA_DIR 'cache/huggingface/hub'
+`$env:TRANSFORMERS_CACHE = Join-Path `$env:AVOC_DATA_DIR 'cache/huggingface/transformers'
+`$env:HF_DATASETS_CACHE = Join-Path `$env:AVOC_DATA_DIR 'cache/huggingface/datasets'
+`$env:PIP_CACHE_DIR = Join-Path `$env:AVOC_DATA_DIR 'cache/pip'
 
 & (Join-Path `$env:AVOC_HOME '.venv\Scripts\python.exe') -m main `$args
 "@
@@ -307,7 +316,7 @@ if ($DesktopShortcut) {
     $Shortcut.WorkingDirectory = $ResolvedPrefix
     $Shortcut.IconLocation = (Join-Path $AppDir 'src\avoc\AVoc.svg')
     $Shortcut.Save()
-    Set-Content -Path $ManifestPath -Value $ShortcutPath -NoNewline
+    Add-Content -Path $ManifestPath -Value $ShortcutPath
     Write-Host "Created desktop shortcut: $ShortcutPath"
 }
 
