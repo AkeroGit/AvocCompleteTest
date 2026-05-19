@@ -7,7 +7,9 @@ param(
 
     [switch]$NoShortcuts,
 
-    [switch]$SkipConnectivityCheck
+    [switch]$SkipConnectivityCheck,
+
+    [switch]$UseSystemPython
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,11 +20,23 @@ $VenvDir = Join-Path $ResolvedPrefix '.venv'
 $AppDir = Join-Path $ResolvedPrefix 'app'
 $BinDir = Join-Path $ResolvedPrefix 'bin'
 $DataDir = Join-Path $ResolvedPrefix 'data'
+$RuntimeDir = Join-Path $ResolvedPrefix 'runtime\python'
 
 New-Item -ItemType Directory -Force -Path $ResolvedPrefix, $BinDir, $DataDir | Out-Null
 
 if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
+
+function Get-PlatformTuple {
+    if ($IsWindows) {
+        switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+            'X64' { return 'win-amd64' }
+            'Arm64' { return 'win-arm64' }
+            default { throw "Unsupported Windows architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)" }
+        }
+    }
+    throw 'Unsupported platform.'
 }
 
 function Resolve-PythonInterpreter {
@@ -67,13 +81,55 @@ function Resolve-PythonInterpreter {
     return $null
 }
 
-$ResolvedPython = Resolve-PythonInterpreter
-if (-not $ResolvedPython) {
-    throw @'
+$InstallMode = if ($UseSystemPython) { 'system-python' } else { 'installer-managed-python' }
+$PlatformTuple = Get-PlatformTuple
+
+if (-not $UseSystemPython) {
+    $RuntimeVersion = '3.12.3'
+    $RuntimeMap = @{
+        'win-amd64' = @{
+            Url = 'https://www.nuget.org/api/v2/package/python/3.12.3'
+            Sha256 = 'f427e6d102ce7a6f0d8cddf5848d95f7e6884bf8b95f5954eb7f22d0f2f85c6e'
+        }
+        'win-arm64' = @{
+            Url = 'https://www.nuget.org/api/v2/package/pythonarm64/3.12.3'
+            Sha256 = '90ef215e0e8b6be090e1d30122b2cc86fba12a34fb6f542c92aa15e41da8b307'
+        }
+    }
+    if (-not $RuntimeMap.ContainsKey($PlatformTuple)) {
+        throw "Managed runtime is not configured for platform tuple: $PlatformTuple"
+    }
+    $RuntimeArchive = Join-Path $ResolvedPrefix "runtime\python-$RuntimeVersion-$PlatformTuple.nupkg"
+    New-Item -ItemType Directory -Force -Path (Split-Path $RuntimeArchive -Parent), $RuntimeDir | Out-Null
+    Invoke-WebRequest -Uri $RuntimeMap[$PlatformTuple].Url -OutFile $RuntimeArchive
+    $ActualHash = (Get-FileHash -Algorithm SHA256 -Path $RuntimeArchive).Hash.ToLowerInvariant()
+    if ($ActualHash -ne $RuntimeMap[$PlatformTuple].Sha256.ToLowerInvariant()) {
+        throw "error: runtime checksum verification failed. expected=$($RuntimeMap[$PlatformTuple].Sha256), actual=$ActualHash"
+    }
+    if (Test-Path $RuntimeDir) { Remove-Item -Recurse -Force $RuntimeDir }
+    New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+    Expand-Archive -Path $RuntimeArchive -DestinationPath $RuntimeDir -Force
+    $ManagedPythonExe = Join-Path $RuntimeDir 'tools\python.exe'
+    if (-not (Test-Path $ManagedPythonExe)) {
+        throw "error: managed runtime extraction failed; python executable not found at $ManagedPythonExe"
+    }
+    $ResolvedPython = @{
+        Name = 'managed-runtime'
+        Launcher = $ManagedPythonExe
+        LauncherArgs = @()
+        Executable = $ManagedPythonExe
+        Version = (& $ManagedPythonExe -c "import sys; print('.'.join(map(str, sys.version_info[:3])))").Trim()
+    }
+}
+else {
+    $ResolvedPython = Resolve-PythonInterpreter
+    if (-not $ResolvedPython) {
+        throw @'
 error: no usable Python interpreter found.
 resolution order: py -3.12, then python.
 remediation: install Python 3.12.x and ensure either "py" or "python" is available on PATH, then rerun installer.
 '@
+    }
 }
 
 $PythonLauncher = $ResolvedPython.Launcher
@@ -84,6 +140,8 @@ $PythonVersion = $ResolvedPython.Version
 Write-Host "Resolved Python launcher : $($ResolvedPython.Name)"
 Write-Host "Resolved Python path     : $PythonExecutable"
 Write-Host "Resolved Python version  : $PythonVersion"
+Write-Host "Install mode             : $InstallMode"
+Write-Host "Platform tuple           : $PlatformTuple"
 
 & $PythonLauncher @($PythonLauncherArgs + @('-c', 'import sys; raise SystemExit(0 if (sys.version_info.major == 3 and sys.version_info.minor == 12) else 1)'))
 if ($LASTEXITCODE -ne 0) {
@@ -254,4 +312,6 @@ if ($DesktopShortcut) {
 }
 
 Write-Host "Installed AVoc into $ResolvedPrefix"
+Write-Host "Installer mode: $InstallMode"
+Write-Host "Python path: $PythonExecutable"
 Write-Host "Run: $(Join-Path $BinDir 'avoc.ps1')"
