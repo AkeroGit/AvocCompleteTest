@@ -538,11 +538,24 @@ def getVoiceCardsDir() -> str:
     voiceCardsDir = os.path.join(appLocalDataDir, VOICE_CARDS_DIR_NAME)
     legacyVoiceCardsDir = os.path.join(appLocalDataDir, LEGACY_VOICE_CARDS_DIR_NAME)
 
-    if not os.path.exists(voiceCardsDir) and os.path.isdir(legacyVoiceCardsDir):
-        try:
-            shutil.move(legacyVoiceCardsDir, voiceCardsDir)
-        except shutil.Error:
-            shutil.copytree(legacyVoiceCardsDir, voiceCardsDir)
+    if os.path.exists(voiceCardsDir) or not os.path.isdir(legacyVoiceCardsDir):
+        return voiceCardsDir
+
+    try:
+        shutil.move(legacyVoiceCardsDir, voiceCardsDir)
+    except shutil.Error:
+        # If the move fails (for example due to cross-device constraints),
+        # copy the content and remove the legacy directory.
+        os.makedirs(voiceCardsDir, exist_ok=True)
+        for entry in os.listdir(legacyVoiceCardsDir):
+            src = os.path.join(legacyVoiceCardsDir, entry)
+            dst = os.path.join(voiceCardsDir, entry)
+            if os.path.exists(dst):
+                continue
+            shutil.move(src, dst)
+
+        if len(os.listdir(legacyVoiceCardsDir)) == 0:
+            os.rmdir(legacyVoiceCardsDir)
 
     return voiceCardsDir
 
