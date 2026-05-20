@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from avoc.main import getVoiceCardsDir
+from avoc.main import create, getVoiceCardsDir
 
 
 def testGetVoiceCardsDirUsesNewDirectoryName(monkeypatch, tmp_path):
@@ -43,3 +43,21 @@ def testGetVoiceCardsDirMigrationIsIdempotent(monkeypatch, tmp_path):
     assert resolved_dir == new_dir
     assert existing_file.read_text() == "new"
     assert (legacy_dir / "legacy.json").read_text() == "legacy"
+
+
+def testCreateUsesUnifiedVoiceCardsDirectory(monkeypatch, tmp_path):
+    monkeypatch.setenv("AVOC_DATA_DIR", str(tmp_path))
+
+    captured_dir = None
+
+    class StubVoiceCardsManager:
+        def __init__(self, importedModelInfoManager, voiceCardsDir):
+            nonlocal captured_dir
+            captured_dir = Path(voiceCardsDir)
+            self.importedModelInfoManager = importedModelInfoManager
+
+    monkeypatch.setattr("avoc.main.VoiceCardsManager", StubVoiceCardsManager)
+
+    create()
+
+    assert captured_dir == tmp_path / "voice_cards"
