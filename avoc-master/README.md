@@ -20,9 +20,10 @@ Drag your voice model files into the window.
 
 # Platforms
 
-All desktops.
-
-Linux is the priority.
+- **Linux + NVIDIA GPU + compatible driver**: primary supported platform.
+- **Windows + NVIDIA GPU + compatible driver**: supported when validated by the current pinned dependency set.
+- **macOS**: unsupported for CUDA builds.
+- **CPU-only packaged mode**: unsupported.
 
 # Goal
 
@@ -59,6 +60,12 @@ and redirects runtime write locations (`QSettings`, model storage, cache/state h
 
 ## Portable installer (Linux and Windows)
 
+### Prerequisites
+
+- NVIDIA driver is required.
+- CUDA availability is required at runtime (doctor validates GPU/ONNX readiness unless skipped).
+- Python runtime is installer-managed by default (`installer-managed-python` mode); use `--use-system-python` (Linux) or `-UseSystemPython` (PowerShell) only when intentionally opting out.
+
 Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinned dependencies.
 
 After prerequisites are in place, install AVoc into any target folder with one command:
@@ -82,6 +89,8 @@ For Windows PowerShell:
 ```
 
 Both installers run preflight checks (Python 3.12.x, `venv`, and package-index connectivity) before creating the virtual environment. On Windows, `install.ps1` resolves Python in this order: `py -3.12`, then `python`, and prints the resolved interpreter path/version before environment creation. If you're intentionally offline with local package sources, use `--skip-connectivity-check` (Linux) or `-SkipConnectivityCheck` (PowerShell).
+
+**Install success criteria:** a successful install requires post-install doctor validation to pass. Only bypass this intentionally with `--skip-doctor` (Linux) or `-SkipDoctor` (PowerShell).
 
 ### Managed runtime source overrides (enterprise / air-gapped)
 
