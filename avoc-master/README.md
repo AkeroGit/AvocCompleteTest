@@ -20,9 +20,9 @@ Drag your voice model files into the window.
 
 # Platforms
 
-- **Linux + NVIDIA GPU + compatible driver**: primary supported platform.
-- **Windows + NVIDIA GPU + compatible driver**: supported when validated by the current pinned dependency set.
-- **macOS**: unsupported for CUDA builds.
+- **Linux + NVIDIA GPU + compatible driver**: primary supported runtime platform (`install.sh`).
+- **Windows + NVIDIA GPU + compatible driver**: supported when validated by the current pinned dependency set (`install.ps1`).
+- **macOS**: unsupported for AVoc CUDA builds.
 - **CPU-only packaged mode**: unsupported.
 
 # Goal
@@ -146,7 +146,7 @@ Remove it by deleting the install root directory (`<root>`).
 
 For installs that may have external shortcut artifacts, run the generated helper:
 
-- Linux/macOS shell: `<root>/bin/uninstall`
+- Linux shell: `<root>/bin/uninstall`
 - Windows cmd: `<root>\bin\uninstall.cmd`
 - Windows PowerShell: `<root>\bin\uninstall.ps1`
 

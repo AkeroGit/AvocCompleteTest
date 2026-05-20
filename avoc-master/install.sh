@@ -16,7 +16,7 @@ usage() {
   cat <<USAGE
 Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
-Installs AVoc into an isolated prefix:
+Installs AVoc into an isolated prefix (Linux only):
   <prefix>/bin     launchers
   <prefix>/.venv   Python virtual environment
   <prefix>/runtime/python managed CPython runtime (default mode)
@@ -116,13 +116,13 @@ case "${uname_s}" in
     esac
     ;;
   Darwin)
-    case "${uname_m}" in
-      x86_64) PLATFORM_TUPLE="macos-x86_64" ;;
-      arm64) PLATFORM_TUPLE="macos-arm64" ;;
-      *) echo "error: unsupported architecture: ${uname_m}" >&2; exit 1 ;;
-    esac
+    echo "error: macOS is unsupported for AVoc CUDA builds. Use Linux (install.sh) or Windows (install.ps1)." >&2
+    exit 1
     ;;
-  *) echo "error: unsupported platform: ${uname_s}" >&2; exit 1 ;;
+  *)
+    echo "error: unsupported platform: ${uname_s}" >&2
+    exit 1
+    ;;
 esac
 
 PYTHON_RUNTIME_VERSION="3.12.3"
