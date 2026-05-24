@@ -145,7 +145,7 @@ validate_prefix_writable() {
     [[ -d "${target}" ]] || { echo "error: install prefix exists but is not a directory: ${target}" >&2; exit 1; }
   else
     parent="$(dirname "${target}")"
-    [[ -d "${parent}" ]] || { echo "error: parent directory does not exist: ${parent}" >&2; exit 1; }
+    mkdir -p "${parent}" 2>/dev/null || { echo "error: unable to create parent directory: ${parent}" >&2; exit 1; }
     [[ -w "${parent}" ]] || { echo "error: parent directory is not writable: ${parent}" >&2; exit 1; }
   fi
   mkdir -p "${target}" "${target}/bin" "${target}/data" "${target}/runtime" 2>/dev/null || {

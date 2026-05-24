@@ -114,7 +114,7 @@ function Confirm-ExternalArtifactsAcknowledgement {
     Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
     Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
 
-    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
+    if ($NonInteractive -or -not $IsInteractive) {
         if (-not $AcceptExternalArtifacts) {
             throw "error: external artifacts selected in non-interactive mode.`nremediation: rerun with -AcceptExternalArtifacts, or disable shortcut options (for example -NoShortcuts)."
         }
@@ -137,7 +137,7 @@ function Confirm-NonEmptyPrefix {
     if (-not $hasContent) {
         return
     }
-    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
+    if ($NonInteractive -or -not $IsInteractive) {
         throw "error: target prefix is not empty: $TargetPath`nremediation: choose an empty prefix, or rerun interactively to confirm overwrite/continue."
     }
     $answer = Read-Host "Target prefix is not empty ($TargetPath). Continue anyway? [y/N]"
@@ -156,8 +156,11 @@ function Test-PrefixWritable {
     }
     else {
         $parentPath = Split-Path -Parent $TargetPath
-        if (-not (Test-Path -LiteralPath $parentPath -PathType Container)) {
-            throw "error: parent directory does not exist: $parentPath"
+        try {
+            New-Item -ItemType Directory -Force -Path $parentPath | Out-Null
+        }
+        catch {
+            throw "error: unable to create parent directory: $parentPath`n$($_.Exception.Message)"
         }
     }
 
@@ -197,7 +200,7 @@ function Show-HeavyWorkSummary {
     Write-Host ('{0,-30} {1}' -f 'Out-of-prefix artifacts:', $outOfPrefixArtifacts)
     Write-Host ('{0,-30} {1}' -f 'Uninstall command:', $uninstallCommand)
 
-    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
+    if ($NonInteractive -or -not $IsInteractive) {
         return
     }
 
