@@ -92,17 +92,6 @@ if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode)) {
     $ResolvedState.ShortcutMode = 'none'
 }
 
-if ($ResolvedState.ShortcutMode -eq 'desktop' -and -not $ResolvedState.NonInteractive -and $IsInteractive -and -not $ResolvedState.AcceptExternalArtifacts) {
-    $PromptFlowNeeded = $true
-    Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
-    Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
-    $ack = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
-    if ($ack -notmatch '^(?i:y|yes)$') {
-        throw 'aborted by user.'
-    }
-    $ResolvedState.AcceptExternalArtifacts = $true
-}
-
 if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
     $PromptFlowNeeded = $true
     Show-Usage
@@ -142,8 +131,17 @@ function Confirm-ExternalArtifactsAcknowledgement {
 
     $answer = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
     if ($answer -notmatch '^(?i:y|yes)$') {
-        throw 'aborted by user.'
+        Write-Host 'Declined external artifacts. Switching to portable mode (no shortcuts) per UNINSTALL.md terminology.'
+        $script:DesktopShortcut = $false
+        $script:NoShortcuts = $true
+        $script:AcceptExternalArtifacts = $false
+        $script:ResolvedState.ShortcutMode = 'none'
+        $script:ResolvedState.AcceptExternalArtifacts = $false
+        return
     }
+
+    $script:AcceptExternalArtifacts = $true
+    $script:ResolvedState.AcceptExternalArtifacts = $true
 }
 
 function Confirm-NonEmptyPrefix {
