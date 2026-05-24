@@ -31,14 +31,30 @@ $FlagState = [ordered]@{
 function Show-Usage {
     @'
 Usage:
-  .\install.ps1 -Prefix <folder> [-DesktopShortcut] [-NoShortcuts] [-NonInteractive] [-AcceptExternalArtifacts] [-SkipConnectivityCheck] [-SkipDoctor] [-UseSystemPython] [-PythonRuntimeUrl <url-or-file>] [-PythonRuntimeSha256 <sha256>]
+  .\install.ps1 [-Prefix <folder>] [-DesktopShortcut] [-NoShortcuts] [-NonInteractive] [-AcceptExternalArtifacts] [-SkipConnectivityCheck] [-SkipDoctor] [-UseSystemPython] [-PythonRuntimeUrl <url-or-file>] [-PythonRuntimeSha256 <sha256>]
 
-Required:
-  -Prefix <folder>        Target install folder.
+Parameters:
+  -Prefix <folder>
+      Target install folder.
+      Optional in interactive mode: if omitted, installer prompts for it.
+      Default install location is the current execution directory when prompt input is blank.
+
+  -DesktopShortcut
+      Enable shortcut integration (creates external artifact, for example Desktop\AVoc.lnk).
+
+  -NoShortcuts
+      Portable mode: disable shortcut/external artifacts (default).
+
+  -NonInteractive
+      Do not prompt. All required values/acknowledgements must be provided by flags.
+
+  -AcceptExternalArtifacts
+      Required in non-interactive mode when -DesktopShortcut (or any external artifact flow) is enabled.
 
 Prompt behavior:
-  If -Prefix is missing and stdin/stdout are interactive, installer prompts for it.
-  In non-interactive mode (CI/piped input) or with -NonInteractive, required flags must be provided.
+  - Prompt flow is flag-aware: explicitly passed flags skip matching prompts.
+  - If target prefix already exists and is non-empty, interactive mode asks for confirmation.
+  - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
 '@ | Write-Host
 }
 
