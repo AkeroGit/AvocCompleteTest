@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 FLAG_PREFIX=""
 FLAG_SHORTCUT_MODE=""
 FLAG_DESKTOP_SHORTCUT=0
