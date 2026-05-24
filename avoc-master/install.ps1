@@ -1,6 +1,5 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
     [string]$Prefix,
 
     [switch]$DesktopShortcut,
@@ -11,6 +10,7 @@ param(
     [switch]$SkipDoctor,
 
     [switch]$UseSystemPython,
+    [switch]$NonInteractive,
 
     [string]$PythonRuntimeUrl,
 
@@ -18,6 +18,43 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Show-Usage {
+    @'
+Usage:
+  .\install.ps1 -Prefix <folder> [-DesktopShortcut] [-NoShortcuts] [-NonInteractive] [-SkipConnectivityCheck] [-SkipDoctor] [-UseSystemPython] [-PythonRuntimeUrl <url-or-file>] [-PythonRuntimeSha256 <sha256>]
+
+Required:
+  -Prefix <folder>        Target install folder.
+
+Prompt behavior:
+  If -Prefix is missing and stdin/stdout are interactive, installer prompts for it.
+  In non-interactive mode (CI/piped input) or with -NonInteractive, required flags must be provided.
+'@ | Write-Host
+}
+
+$IsInteractive = [System.Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+if ([string]::IsNullOrWhiteSpace($Prefix)) {
+    if ($NonInteractive -or -not $IsInteractive) {
+        Show-Usage
+        throw 'error: -Prefix is required in non-interactive mode.'
+    }
+    $Prefix = Read-Host 'Install prefix folder'
+}
+if ([string]::IsNullOrWhiteSpace($Prefix)) {
+    Show-Usage
+    throw 'error: -Prefix is required.'
+}
+
+# Effective config: merge prompted/flag inputs into a single config path.
+$EffectiveConfig = [ordered]@{
+    Prefix = $Prefix
+    DesktopShortcut = [bool]$DesktopShortcut
+    NoShortcuts = [bool]$NoShortcuts
+}
+$Prefix = $EffectiveConfig.Prefix
+$DesktopShortcut = $EffectiveConfig.DesktopShortcut
+$NoShortcuts = $EffectiveConfig.NoShortcuts
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ResolvedPrefix = [System.IO.Path]::GetFullPath($Prefix)

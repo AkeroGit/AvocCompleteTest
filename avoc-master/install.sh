@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
 NO_SHORTCUTS=0
+NON_INTERACTIVE=0
 SKIP_CONNECTIVITY_CHECK=0
 USE_SYSTEM_PYTHON=0
 INSTALL_MODE="installer-managed-python"
@@ -14,7 +15,7 @@ SKIP_DOCTOR=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--non-interactive] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
 Installs AVoc into an isolated prefix (Linux only):
   <prefix>/bin     launchers
@@ -27,6 +28,7 @@ Options:
   --prefix <folder>     Target install folder (required)
   --desktop-shortcut    Also create a .desktop launcher in ~/.local/share/applications
   --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
+  --non-interactive     Do not prompt; require all required flags to be provided
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
   --skip-doctor         Advanced override: skip post-install GPU/ONNX doctor validation
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-shortcuts)
       NO_SHORTCUTS=1
+      shift
+      ;;
+    --non-interactive)
+      NON_INTERACTIVE=1
       shift
       ;;
     --skip-connectivity-check)
@@ -89,7 +95,35 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+IS_INTERACTIVE=0
+if [[ -t 0 && -t 1 ]]; then
+  IS_INTERACTIVE=1
+fi
+
+prompt_missing_inputs() {
+  if [[ -z "${PREFIX}" ]]; then
+    read -r -p "Install prefix folder: " PREFIX
+  fi
+}
+
+if [[ -z "${PREFIX}" ]]; then
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    echo "error: --prefix is required in non-interactive mode." >&2
+    usage >&2
+    exit 1
+  fi
+  prompt_missing_inputs
+fi
+
 [[ -n "${PREFIX}" ]] || { echo "error: --prefix is required" >&2; usage >&2; exit 1; }
+
+# Effective config: normalize prompted and flag values onto the same variables/path.
+EFFECTIVE_PREFIX="${PREFIX}"
+EFFECTIVE_CREATE_DESKTOP_SHORTCUT="${CREATE_DESKTOP_SHORTCUT}"
+EFFECTIVE_NO_SHORTCUTS="${NO_SHORTCUTS}"
+PREFIX="${EFFECTIVE_PREFIX}"
+CREATE_DESKTOP_SHORTCUT="${EFFECTIVE_CREATE_DESKTOP_SHORTCUT}"
+NO_SHORTCUTS="${EFFECTIVE_NO_SHORTCUTS}"
 
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
