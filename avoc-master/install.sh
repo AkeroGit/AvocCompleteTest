@@ -245,7 +245,7 @@ fi
 echo "Resulting install mode: ${RESOLVED_INTEGRATION_MODE}"
 
 print_heavy_work_summary() {
-  local python_mode shortcut_choice out_of_prefix uninstall_command
+  local python_mode shortcut_integration_status out_of_prefix uninstall_command
   if [[ "${INSTALL_MODE}" == "system-python" ]]; then
     python_mode="system"
   else
@@ -253,43 +253,43 @@ print_heavy_work_summary() {
   fi
 
   if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
-    shortcut_choice="desktop-shortcut"
+    shortcut_integration_status="desktop (integrated)"
     out_of_prefix="yes"
   else
-    shortcut_choice="none"
+    shortcut_integration_status="none (portable)"
     out_of_prefix="no"
   fi
 
   uninstall_command="${PREFIX}/bin/uninstall"
 
   echo "========================================"
-  echo "Heavy Work Summary"
+  echo "Resolved Install Settings"
   echo "========================================"
   printf '%-30s %s\n' "Install path:" "${PREFIX}"
-  printf '%-30s %s\n' "Python mode:" "${python_mode}"
-  printf '%-30s %s\n' "Shortcut choice:" "${shortcut_choice}"
+  printf '%-30s %s\n' "Shortcut/integration status:" "${shortcut_integration_status}"
   printf '%-30s %s\n' "Out-of-prefix artifacts:" "${out_of_prefix}"
-  printf '%-30s %s\n' "Uninstall command:" "${uninstall_command}"
+  printf '%-30s %s\n' "Uninstall command path:" "${uninstall_command}"
+  printf '%-30s %s\n' "Python mode:" "${python_mode}"
 
   if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
     return 0
   fi
 
   local answer
-  read -r -p "Proceed? [Y/n] " answer
+  read -r -p "Proceed? [y/N] " answer
   case "${answer}" in
-    ""|y|Y|yes|YES) ;;
+    y|Y|yes|YES) ;;
     *) echo "aborted by user."; exit 1 ;;
   esac
 }
-
-print_heavy_work_summary
 
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
   echo "External artifacts summary: desktop entry will be created at ${HOME}/.local/share/applications/AVoc-$(basename "${PREFIX}").desktop and tracked in ${PREFIX}/install-manifest.txt."
 fi
 
 echo "Info: default installation does not modify global PATH. Use ${PREFIX}/bin/avoc directly."
+
+print_heavy_work_summary
 
 uname_s="$(uname -s)"
 uname_m="$(uname -m)"
