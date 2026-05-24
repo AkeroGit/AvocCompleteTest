@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
 NO_SHORTCUTS=0
@@ -102,7 +101,10 @@ fi
 
 prompt_missing_inputs() {
   if [[ -z "${PREFIX}" ]]; then
-    read -r -p "Install prefix folder: " PREFIX
+    local default_prefix
+    default_prefix="$(pwd)"
+    read -r -p "Install prefix folder [${default_prefix}]: " PREFIX
+    PREFIX="${PREFIX:-${default_prefix}}"
   fi
 }
 
@@ -130,6 +132,46 @@ if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   exit 1
 fi
 
+resolve_absolute_path() {
+  python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"
+}
+
+confirm_non_empty_target() {
+  local target="$1"
+  if [[ ! -d "${target}" ]]; then
+    return 0
+  fi
+  if [[ -n "$(find "${target}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+    if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+      echo "error: target prefix is not empty: ${target}" >&2
+      echo "remediation: choose an empty prefix, or rerun interactively to confirm overwrite/continue." >&2
+      exit 1
+    fi
+    local answer
+    read -r -p "Target prefix is not empty (${target}). Continue anyway? [y/N]: " answer
+    case "${answer}" in
+      y|Y|yes|YES) ;;
+      *) echo "aborted by user."; exit 1 ;;
+    esac
+  fi
+}
+
+validate_prefix_writable() {
+  local target="$1"
+  local parent
+  if [[ -e "${target}" ]]; then
+    [[ -d "${target}" ]] || { echo "error: install prefix exists but is not a directory: ${target}" >&2; exit 1; }
+  else
+    parent="$(dirname "${target}")"
+    [[ -d "${parent}" ]] || { echo "error: parent directory does not exist: ${parent}" >&2; exit 1; }
+    [[ -w "${parent}" ]] || { echo "error: parent directory is not writable: ${parent}" >&2; exit 1; }
+  fi
+  mkdir -p "${target}" "${target}/bin" "${target}/data" "${target}/runtime" 2>/dev/null || {
+    echo "error: unable to create required folders under prefix: ${target}" >&2
+    exit 1
+  }
+}
+
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
   cat <<'WARN'
 warning: --desktop-shortcut creates an out-of-prefix desktop entry in ~/.local/share/applications.
@@ -137,6 +179,10 @@ this artifact is tracked in install-manifest.txt and removed by bin/uninstall.
 WARN
 fi
 
+PREFIX="$(resolve_absolute_path "${PREFIX}")"
+confirm_non_empty_target "${PREFIX}"
+validate_prefix_writable "${PREFIX}"
+echo "Resolved install prefix: ${PREFIX}"
 echo "Info: default installation does not modify global PATH. Use ${PREFIX}/bin/avoc directly."
 
 uname_s="$(uname -s)"
@@ -161,7 +207,6 @@ esac
 
 PYTHON_RUNTIME_VERSION="3.12.3"
 RUNTIME_ROOT_REL="runtime/python"
-PREFIX="$(python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$PREFIX")"
 RUNTIME_DIR="${PREFIX}/${RUNTIME_ROOT_REL}"
 
 if [[ "${USE_SYSTEM_PYTHON}" -eq 0 ]]; then
