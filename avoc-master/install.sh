@@ -16,22 +16,28 @@ SKIP_DOCTOR=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--non-interactive] [--accept-external-artifacts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
+Usage: ./install.sh [--prefix <folder>] [--desktop-shortcut] [--no-shortcuts] [--non-interactive] [--accept-external-artifacts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
 Installs AVoc into an isolated prefix (Linux only):
-  <prefix>/bin     launchers
-  <prefix>/.venv   Python virtual environment
+  <prefix>/bin            launchers
+  <prefix>/.venv          Python virtual environment
   <prefix>/runtime/python managed CPython runtime (default mode)
   <prefix>/app            AVoc sources
   <prefix>/data           writable runtime data
 
+Interactive behavior:
+  - If --prefix is omitted in an interactive terminal, installer prompts for it.
+  - Default install location is the current execution directory (pwd) when prompt is accepted blank.
+  - Prompt flow is flag-aware: explicit flags skip matching prompts.
+  - If target prefix already exists and is non-empty, interactive mode asks for confirmation.
+
 Options:
-  --prefix <folder>     Target install folder (required)
-  --desktop-shortcut    Also create a .desktop launcher in ~/.local/share/applications
-  --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
-  --non-interactive     Do not prompt; require all required flags to be provided
+  --prefix <folder>     Target install folder (optional in interactive mode; required in non-interactive mode)
+  --desktop-shortcut    Create a .desktop launcher in ~/.local/share/applications (external artifact)
+  --no-shortcuts        Portable mode: do not create external shortcut artifacts (default)
+  --non-interactive     Do not prompt; require all required flags and acknowledgements to be provided
   --accept-external-artifacts
-                        Acknowledge creation of artifacts outside <prefix> in non-interactive mode
+                        Required with --non-interactive when shortcut/external artifacts are enabled
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
   --skip-doctor         Advanced override: skip post-install GPU/ONNX doctor validation
