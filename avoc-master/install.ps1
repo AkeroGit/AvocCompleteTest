@@ -64,9 +64,12 @@ if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
     $ResolvedState.Prefix = if ([string]::IsNullOrWhiteSpace($prefixInput)) { $defaultPrefix } else { $prefixInput }
 }
 
+$PlannedShortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'AVoc.lnk'
+
 if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode) -and -not $ResolvedState.NonInteractive -and $IsInteractive) {
     $PromptFlowNeeded = $true
-    $answer = Read-Host 'Create desktop shortcut on the Desktop? [y/N]'
+    Write-Host "Shortcut integration artifact: $PlannedShortcutPath"
+    $answer = Read-Host 'Create shortcut integration? [y/N]'
     $ResolvedState.ShortcutMode = if ($answer -match '^(?i:y|yes)$') { 'desktop' } else { 'none' }
 }
 if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode)) {
@@ -213,7 +216,7 @@ function Show-HeavyWorkSummary {
 Show-HeavyWorkSummary
 
 if ($DesktopShortcut) {
-    Write-Host "External artifacts summary: desktop shortcut will be created on the Desktop and tracked in $(Join-Path $ResolvedPrefix 'install-manifest.txt')."
+    Write-Host "External artifacts summary: desktop shortcut will be created at $(Join-Path ([Environment]::GetFolderPath('Desktop')) 'AVoc.lnk') and tracked in $(Join-Path $ResolvedPrefix 'install-manifest.txt')."
 }
 Write-Host 'Info: default installation does not modify global PATH. Use <prefix>\bin\avoc.cmd directly.'
 

@@ -166,9 +166,12 @@ if [[ -z "${RESOLVED_PREFIX}" ]]; then
   RESOLVED_PREFIX="${RESOLVED_PREFIX:-${default_prefix}}"
 fi
 
+PLANNED_DESKTOP_SHORTCUT_PATH="${HOME}/.local/share/applications/AVoc-$(basename "$(resolve_absolute_path "${RESOLVED_PREFIX}")").desktop"
+
 if [[ -z "${RESOLVED_SHORTCUT_MODE}" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 ]]; then
   PROMPT_FLOW_NEEDED=1
-  read -r -p "Create desktop shortcut in ~/.local/share/applications? [y/N]: " answer
+  echo "Shortcut integration artifact: ${PLANNED_DESKTOP_SHORTCUT_PATH}"
+  read -r -p "Create shortcut integration? [y/N]: " answer
   case "${answer}" in
     y|Y|yes|YES) RESOLVED_SHORTCUT_MODE="desktop" ;;
     *) RESOLVED_SHORTCUT_MODE="none" ;;
@@ -291,7 +294,7 @@ print_heavy_work_summary() {
 print_heavy_work_summary
 
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
-  echo "External artifacts summary: desktop entry will be created at ~/.local/share/applications and tracked in ${PREFIX}/install-manifest.txt."
+  echo "External artifacts summary: desktop entry will be created at ${HOME}/.local/share/applications/AVoc-$(basename "${PREFIX}").desktop and tracked in ${PREFIX}/install-manifest.txt."
 fi
 
 echo "Info: default installation does not modify global PATH. Use ${PREFIX}/bin/avoc directly."
