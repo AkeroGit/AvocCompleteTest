@@ -112,6 +112,7 @@ NON_INTERACTIVE="${FLAG_NON_INTERACTIVE}"
 RESOLVED_PREFIX="${FLAG_PREFIX}"
 RESOLVED_SHORTCUT_MODE="${FLAG_SHORTCUT_MODE}"
 RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS="${FLAG_ACCEPT_EXTERNAL_ARTIFACTS}"
+PROMPT_FLOW_NEEDED=0
 
 resolve_absolute_path() {
   python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"
@@ -154,6 +155,7 @@ validate_prefix_writable() {
 }
 
 if [[ -z "${RESOLVED_PREFIX}" ]]; then
+  PROMPT_FLOW_NEEDED=1
   if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
     echo "error: --prefix is required in non-interactive mode." >&2
     usage >&2
@@ -165,6 +167,7 @@ if [[ -z "${RESOLVED_PREFIX}" ]]; then
 fi
 
 if [[ -z "${RESOLVED_SHORTCUT_MODE}" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 ]]; then
+  PROMPT_FLOW_NEEDED=1
   read -r -p "Create desktop shortcut in ~/.local/share/applications? [y/N]: " answer
   case "${answer}" in
     y|Y|yes|YES) RESOLVED_SHORTCUT_MODE="desktop" ;;
@@ -177,6 +180,7 @@ if [[ -z "${RESOLVED_SHORTCUT_MODE}" ]]; then
 fi
 
 if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 && "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
+  PROMPT_FLOW_NEEDED=1
   echo "WARNING: This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\\bin\\uninstall.cmd (Windows) to clean up fully."
   echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
   read -r -p "Proceed with external artifacts? Type 'yes' or 'y' to continue: " answer
