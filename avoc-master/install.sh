@@ -5,6 +5,7 @@ PREFIX=""
 CREATE_DESKTOP_SHORTCUT=0
 NO_SHORTCUTS=0
 NON_INTERACTIVE=0
+ACCEPT_EXTERNAL_ARTIFACTS=0
 SKIP_CONNECTIVITY_CHECK=0
 USE_SYSTEM_PYTHON=0
 INSTALL_MODE="installer-managed-python"
@@ -14,7 +15,7 @@ SKIP_DOCTOR=0
 
 usage() {
   cat <<USAGE
-Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--non-interactive] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
+Usage: ./install.sh --prefix <folder> [--desktop-shortcut] [--no-shortcuts] [--non-interactive] [--accept-external-artifacts] [--skip-connectivity-check] [--skip-doctor] [--use-system-python] [--python-runtime-url <url-or-file>] [--python-runtime-sha256 <sha256>]
 
 Installs AVoc into an isolated prefix (Linux only):
   <prefix>/bin     launchers
@@ -28,6 +29,8 @@ Options:
   --desktop-shortcut    Also create a .desktop launcher in ~/.local/share/applications
   --no-shortcuts        Skip desktop/start-menu integration add-ons (default)
   --non-interactive     Do not prompt; require all required flags to be provided
+  --accept-external-artifacts
+                        Acknowledge creation of artifacts outside <prefix> in non-interactive mode
   --skip-connectivity-check
                         Skip the PyPI connectivity preflight check before pip install
   --skip-doctor         Advanced override: skip post-install GPU/ONNX doctor validation
@@ -57,6 +60,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --non-interactive)
       NON_INTERACTIVE=1
+      shift
+      ;;
+    --accept-external-artifacts)
+      ACCEPT_EXTERNAL_ARTIFACTS=1
       shift
       ;;
     --skip-connectivity-check)
@@ -204,6 +211,38 @@ if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
   echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
   exit 1
 fi
+
+check_external_artifacts_ack() {
+  local has_external_artifacts=0
+  if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
+    has_external_artifacts=1
+  fi
+
+  if [[ "${has_external_artifacts}" -eq 0 ]]; then
+    return 0
+  fi
+
+  echo "WARNING: This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\\bin\\uninstall.cmd (Windows) to clean up fully."
+  echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
+
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    if [[ "${ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
+      echo "error: external artifacts selected in non-interactive mode." >&2
+      echo "remediation: rerun with --accept-external-artifacts, or disable shortcut options (for example --no-shortcuts)." >&2
+      exit 1
+    fi
+    return 0
+  fi
+
+  local answer
+  read -r -p "Proceed with external artifacts? Type 'yes' or 'y' to continue: " answer
+  case "${answer}" in
+    y|Y|yes|YES) ;;
+    *) echo "aborted by user."; exit 1 ;;
+  esac
+}
+
+check_external_artifacts_ack
 
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
   echo "External artifacts summary: desktop entry will be created at ~/.local/share/applications and tracked in ${PREFIX}/install-manifest.txt."

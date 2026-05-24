@@ -11,6 +11,7 @@ param(
 
     [switch]$UseSystemPython,
     [switch]$NonInteractive,
+    [switch]$AcceptExternalArtifacts,
 
     [string]$PythonRuntimeUrl,
 
@@ -22,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 function Show-Usage {
     @'
 Usage:
-  .\install.ps1 -Prefix <folder> [-DesktopShortcut] [-NoShortcuts] [-NonInteractive] [-SkipConnectivityCheck] [-SkipDoctor] [-UseSystemPython] [-PythonRuntimeUrl <url-or-file>] [-PythonRuntimeSha256 <sha256>]
+  .\install.ps1 -Prefix <folder> [-DesktopShortcut] [-NoShortcuts] [-NonInteractive] [-AcceptExternalArtifacts] [-SkipConnectivityCheck] [-SkipDoctor] [-UseSystemPython] [-PythonRuntimeUrl <url-or-file>] [-PythonRuntimeSha256 <sha256>]
 
 Required:
   -Prefix <folder>        Target install folder.
@@ -60,6 +61,28 @@ $NoShortcuts = $EffectiveConfig.NoShortcuts
 
 if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
+
+function Confirm-ExternalArtifactsAcknowledgement {
+    $HasExternalArtifacts = $DesktopShortcut
+    if (-not $HasExternalArtifacts) {
+        return
+    }
+
+    Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
+    Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
+
+    if ($NonInteractive -or -not $IsInteractive) {
+        if (-not $AcceptExternalArtifacts) {
+            throw "error: external artifacts selected in non-interactive mode.`nremediation: rerun with -AcceptExternalArtifacts, or disable shortcut options (for example -NoShortcuts)."
+        }
+        return
+    }
+
+    $answer = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
+    if ($answer -notmatch '^(?i:y|yes)$') {
+        throw 'aborted by user.'
+    }
 }
 
 function Confirm-NonEmptyPrefix {
@@ -138,6 +161,8 @@ Prompt-DesktopShortcutPreference
 if ($DesktopShortcut -and $NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
 }
+
+Confirm-ExternalArtifactsAcknowledgement
 
 if ($DesktopShortcut) {
     Write-Host "External artifacts summary: desktop shortcut will be created on the Desktop and tracked in $(Join-Path $ResolvedPrefix 'install-manifest.txt')."
