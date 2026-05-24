@@ -39,7 +39,9 @@ if ([string]::IsNullOrWhiteSpace($Prefix)) {
         Show-Usage
         throw 'error: -Prefix is required in non-interactive mode.'
     }
-    $Prefix = Read-Host 'Install prefix folder'
+    $defaultPrefix = (Get-Location).Path
+    $prefixInput = Read-Host "Install prefix folder [$defaultPrefix]"
+    $Prefix = if ([string]::IsNullOrWhiteSpace($prefixInput)) { $defaultPrefix } else { $prefixInput }
 }
 if ([string]::IsNullOrWhiteSpace($Prefix)) {
     Show-Usage
@@ -56,19 +58,62 @@ $Prefix = $EffectiveConfig.Prefix
 $DesktopShortcut = $EffectiveConfig.DesktopShortcut
 $NoShortcuts = $EffectiveConfig.NoShortcuts
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ($DesktopShortcut -and $NoShortcuts) {
+    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
+
+function Confirm-NonEmptyPrefix {
+    param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+    if (-not (Test-Path -LiteralPath $TargetPath -PathType Container)) {
+        return
+    }
+    $hasContent = Get-ChildItem -LiteralPath $TargetPath -Force | Select-Object -First 1
+    if (-not $hasContent) {
+        return
+    }
+    if ($NonInteractive -or -not $IsInteractive) {
+        throw "error: target prefix is not empty: $TargetPath`nremediation: choose an empty prefix, or rerun interactively to confirm overwrite/continue."
+    }
+    $answer = Read-Host "Target prefix is not empty ($TargetPath). Continue anyway? [y/N]"
+    if ($answer -notmatch '^(?i:y|yes)$') {
+        throw 'aborted by user.'
+    }
+}
+
+function Test-PrefixWritable {
+    param([Parameter(Mandatory = $true)][string]$TargetPath)
+
+    if (Test-Path -LiteralPath $TargetPath) {
+        if (-not (Test-Path -LiteralPath $TargetPath -PathType Container)) {
+            throw "error: install prefix exists but is not a directory: $TargetPath"
+        }
+    }
+    else {
+        $parentPath = Split-Path -Parent $TargetPath
+        if (-not (Test-Path -LiteralPath $parentPath -PathType Container)) {
+            throw "error: parent directory does not exist: $parentPath"
+        }
+    }
+
+    try {
+        New-Item -ItemType Directory -Force -Path $TargetPath, (Join-Path $TargetPath 'bin'), (Join-Path $TargetPath 'data'), (Join-Path $TargetPath 'runtime') | Out-Null
+    }
+    catch {
+        throw "error: unable to create required folders under prefix: $TargetPath`n$($_.Exception.Message)"
+    }
+}
+
 $ResolvedPrefix = [System.IO.Path]::GetFullPath($Prefix)
+Confirm-NonEmptyPrefix -TargetPath $ResolvedPrefix
+Test-PrefixWritable -TargetPath $ResolvedPrefix
+
 $VenvDir = Join-Path $ResolvedPrefix '.venv'
 $AppDir = Join-Path $ResolvedPrefix 'app'
 $BinDir = Join-Path $ResolvedPrefix 'bin'
 $DataDir = Join-Path $ResolvedPrefix 'data'
 $RuntimeDir = Join-Path $ResolvedPrefix 'runtime\python'
-
-New-Item -ItemType Directory -Force -Path $ResolvedPrefix, $BinDir, $DataDir | Out-Null
-
-if ($DesktopShortcut -and $NoShortcuts) {
-    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
-}
+Write-Host "Resolved install prefix : $ResolvedPrefix"
 
 if ($DesktopShortcut) {
     Write-Warning '-DesktopShortcut creates an out-of-prefix artifact on the Desktop. It is tracked in install-manifest.txt and removed by uninstall.'
