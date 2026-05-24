@@ -108,6 +108,28 @@ prompt_missing_inputs() {
   fi
 }
 
+prompt_desktop_shortcut_preference() {
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    return 0
+  fi
+  if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 || "${NO_SHORTCUTS}" -eq 1 ]]; then
+    return 0
+  fi
+
+  local answer
+  read -r -p "Create desktop shortcut in ~/.local/share/applications? [y/N]: " answer
+  case "${answer}" in
+    y|Y|yes|YES)
+      CREATE_DESKTOP_SHORTCUT=1
+      NO_SHORTCUTS=0
+      ;;
+    *)
+      CREATE_DESKTOP_SHORTCUT=0
+      NO_SHORTCUTS=1
+      ;;
+  esac
+}
+
 if [[ -z "${PREFIX}" ]]; then
   if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
     echo "error: --prefix is required in non-interactive mode." >&2
@@ -172,17 +194,21 @@ validate_prefix_writable() {
   }
 }
 
-if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
-  cat <<'WARN'
-warning: --desktop-shortcut creates an out-of-prefix desktop entry in ~/.local/share/applications.
-this artifact is tracked in install-manifest.txt and removed by bin/uninstall.
-WARN
-fi
-
 PREFIX="$(resolve_absolute_path "${PREFIX}")"
 confirm_non_empty_target "${PREFIX}"
 validate_prefix_writable "${PREFIX}"
 echo "Resolved install prefix: ${PREFIX}"
+prompt_desktop_shortcut_preference
+
+if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
+  echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
+  exit 1
+fi
+
+if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
+  echo "External artifacts summary: desktop entry will be created at ~/.local/share/applications and tracked in ${PREFIX}/install-manifest.txt."
+fi
+
 echo "Info: default installation does not modify global PATH. Use ${PREFIX}/bin/avoc directly."
 
 uname_s="$(uname -s)"
