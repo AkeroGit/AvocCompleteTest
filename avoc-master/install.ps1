@@ -44,6 +44,8 @@ Prompt behavior:
 
 $IsInteractive = [System.Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
 
+$PromptFlowNeeded = $false
+
 $ResolvedState = [ordered]@{
     Prefix = $FlagState.Prefix
     ShortcutMode = $FlagState.ShortcutMode
@@ -52,6 +54,7 @@ $ResolvedState = [ordered]@{
 }
 
 if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
+    $PromptFlowNeeded = $true
     if ($ResolvedState.NonInteractive -or -not $IsInteractive) {
         Show-Usage
         throw 'error: -Prefix is required in non-interactive mode.'
@@ -62,6 +65,7 @@ if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
 }
 
 if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode) -and -not $ResolvedState.NonInteractive -and $IsInteractive) {
+    $PromptFlowNeeded = $true
     $answer = Read-Host 'Create desktop shortcut on the Desktop? [y/N]'
     $ResolvedState.ShortcutMode = if ($answer -match '^(?i:y|yes)$') { 'desktop' } else { 'none' }
 }
@@ -70,6 +74,7 @@ if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode)) {
 }
 
 if ($ResolvedState.ShortcutMode -eq 'desktop' -and -not $ResolvedState.NonInteractive -and $IsInteractive -and -not $ResolvedState.AcceptExternalArtifacts) {
+    $PromptFlowNeeded = $true
     Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
     Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
     $ack = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
@@ -80,6 +85,7 @@ if ($ResolvedState.ShortcutMode -eq 'desktop' -and -not $ResolvedState.NonIntera
 }
 
 if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
+    $PromptFlowNeeded = $true
     Show-Usage
     throw 'error: -Prefix is required.'
 }
@@ -108,7 +114,7 @@ function Confirm-ExternalArtifactsAcknowledgement {
     Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
     Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
 
-    if ($NonInteractive -or -not $IsInteractive) {
+    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
         if (-not $AcceptExternalArtifacts) {
             throw "error: external artifacts selected in non-interactive mode.`nremediation: rerun with -AcceptExternalArtifacts, or disable shortcut options (for example -NoShortcuts)."
         }
@@ -131,7 +137,7 @@ function Confirm-NonEmptyPrefix {
     if (-not $hasContent) {
         return
     }
-    if ($NonInteractive -or -not $IsInteractive) {
+    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
         throw "error: target prefix is not empty: $TargetPath`nremediation: choose an empty prefix, or rerun interactively to confirm overwrite/continue."
     }
     $answer = Read-Host "Target prefix is not empty ($TargetPath). Continue anyway? [y/N]"
@@ -191,7 +197,7 @@ function Show-HeavyWorkSummary {
     Write-Host ('{0,-30} {1}' -f 'Out-of-prefix artifacts:', $outOfPrefixArtifacts)
     Write-Host ('{0,-30} {1}' -f 'Uninstall command:', $uninstallCommand)
 
-    if ($NonInteractive -or -not $IsInteractive) {
+    if ($NonInteractive -or -not $IsInteractive -or -not $PromptFlowNeeded) {
         return
     }
 
