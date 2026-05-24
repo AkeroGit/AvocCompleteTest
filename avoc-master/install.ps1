@@ -164,6 +164,33 @@ if ($DesktopShortcut -and $NoShortcuts) {
 
 Confirm-ExternalArtifactsAcknowledgement
 
+function Show-HeavyWorkSummary {
+    $pythonMode = if ($UseSystemPython) { 'system' } else { 'managed' }
+    $shortcutChoice = if ($DesktopShortcut) { 'desktop-shortcut' } else { 'none' }
+    $outOfPrefixArtifacts = if ($DesktopShortcut) { 'yes' } else { 'no' }
+    $uninstallCommand = Join-Path $ResolvedPrefix 'bin\uninstall.cmd'
+
+    Write-Host '========================================'
+    Write-Host 'Heavy Work Summary'
+    Write-Host '========================================'
+    Write-Host ('{0,-30} {1}' -f 'Install path:', $ResolvedPrefix)
+    Write-Host ('{0,-30} {1}' -f 'Python mode:', $pythonMode)
+    Write-Host ('{0,-30} {1}' -f 'Shortcut choice:', $shortcutChoice)
+    Write-Host ('{0,-30} {1}' -f 'Out-of-prefix artifacts:', $outOfPrefixArtifacts)
+    Write-Host ('{0,-30} {1}' -f 'Uninstall command:', $uninstallCommand)
+
+    if ($NonInteractive -or -not $IsInteractive) {
+        return
+    }
+
+    $answer = Read-Host 'Proceed? [Y/n]'
+    if ($answer -and $answer -notmatch '^(?i:y|yes)$') {
+        throw 'aborted by user.'
+    }
+}
+
+Show-HeavyWorkSummary
+
 if ($DesktopShortcut) {
     Write-Host "External artifacts summary: desktop shortcut will be created on the Desktop and tracked in $(Join-Path $ResolvedPrefix 'install-manifest.txt')."
 }

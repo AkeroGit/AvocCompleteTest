@@ -244,6 +244,47 @@ check_external_artifacts_ack() {
 
 check_external_artifacts_ack
 
+print_heavy_work_summary() {
+  local python_mode shortcut_choice out_of_prefix uninstall_command
+  if [[ "${INSTALL_MODE}" == "system-python" ]]; then
+    python_mode="system"
+  else
+    python_mode="managed"
+  fi
+
+  if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
+    shortcut_choice="desktop-shortcut"
+    out_of_prefix="yes"
+  else
+    shortcut_choice="none"
+    out_of_prefix="no"
+  fi
+
+  uninstall_command="${PREFIX}/bin/uninstall"
+
+  echo "========================================"
+  echo "Heavy Work Summary"
+  echo "========================================"
+  printf '%-30s %s\n' "Install path:" "${PREFIX}"
+  printf '%-30s %s\n' "Python mode:" "${python_mode}"
+  printf '%-30s %s\n' "Shortcut choice:" "${shortcut_choice}"
+  printf '%-30s %s\n' "Out-of-prefix artifacts:" "${out_of_prefix}"
+  printf '%-30s %s\n' "Uninstall command:" "${uninstall_command}"
+
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    return 0
+  fi
+
+  local answer
+  read -r -p "Proceed? [Y/n] " answer
+  case "${answer}" in
+    ""|y|Y|yes|YES) ;;
+    *) echo "aborted by user."; exit 1 ;;
+  esac
+}
+
+print_heavy_work_summary
+
 if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
   echo "External artifacts summary: desktop entry will be created at ~/.local/share/applications and tracked in ${PREFIX}/install-manifest.txt."
 fi
