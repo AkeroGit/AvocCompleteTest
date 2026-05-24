@@ -104,6 +104,25 @@ function Test-PrefixWritable {
     }
 }
 
+function Prompt-DesktopShortcutPreference {
+    if ($NonInteractive -or -not $IsInteractive) {
+        return
+    }
+    if ($DesktopShortcut -or $NoShortcuts) {
+        return
+    }
+
+    $answer = Read-Host 'Create desktop shortcut on the Desktop? [y/N]'
+    if ($answer -match '^(?i:y|yes)$') {
+        $script:DesktopShortcut = $true
+        $script:NoShortcuts = $false
+    }
+    else {
+        $script:DesktopShortcut = $false
+        $script:NoShortcuts = $true
+    }
+}
+
 $ResolvedPrefix = [System.IO.Path]::GetFullPath($Prefix)
 Confirm-NonEmptyPrefix -TargetPath $ResolvedPrefix
 Test-PrefixWritable -TargetPath $ResolvedPrefix
@@ -114,9 +133,14 @@ $BinDir = Join-Path $ResolvedPrefix 'bin'
 $DataDir = Join-Path $ResolvedPrefix 'data'
 $RuntimeDir = Join-Path $ResolvedPrefix 'runtime\python'
 Write-Host "Resolved install prefix : $ResolvedPrefix"
+Prompt-DesktopShortcutPreference
+
+if ($DesktopShortcut -and $NoShortcuts) {
+    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
 
 if ($DesktopShortcut) {
-    Write-Warning '-DesktopShortcut creates an out-of-prefix artifact on the Desktop. It is tracked in install-manifest.txt and removed by uninstall.'
+    Write-Host "External artifacts summary: desktop shortcut will be created on the Desktop and tracked in $(Join-Path $ResolvedPrefix 'install-manifest.txt')."
 }
 Write-Host 'Info: default installation does not modify global PATH. Use <prefix>\bin\avoc.cmd directly.'
 
