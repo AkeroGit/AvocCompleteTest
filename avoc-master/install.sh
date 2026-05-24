@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PREFIX=""
-CREATE_DESKTOP_SHORTCUT=0
-NO_SHORTCUTS=0
-NON_INTERACTIVE=0
-ACCEPT_EXTERNAL_ARTIFACTS=0
+FLAG_PREFIX=""
+FLAG_SHORTCUT_MODE=""
+FLAG_DESKTOP_SHORTCUT=0
+FLAG_NO_SHORTCUTS=0
+FLAG_NON_INTERACTIVE=0
+FLAG_ACCEPT_EXTERNAL_ARTIFACTS=0
 SKIP_CONNECTIVITY_CHECK=0
 USE_SYSTEM_PYTHON=0
 INSTALL_MODE="installer-managed-python"
@@ -47,23 +48,25 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --prefix)
       [[ $# -ge 2 ]] || { echo "error: --prefix requires a value" >&2; exit 1; }
-      PREFIX="$2"
+      FLAG_PREFIX="$2"
       shift 2
       ;;
     --desktop-shortcut)
-      CREATE_DESKTOP_SHORTCUT=1
+      FLAG_SHORTCUT_MODE="desktop"
+      FLAG_DESKTOP_SHORTCUT=1
       shift
       ;;
     --no-shortcuts)
-      NO_SHORTCUTS=1
+      FLAG_SHORTCUT_MODE="none"
+      FLAG_NO_SHORTCUTS=1
       shift
       ;;
     --non-interactive)
-      NON_INTERACTIVE=1
+      FLAG_NON_INTERACTIVE=1
       shift
       ;;
     --accept-external-artifacts)
-      ACCEPT_EXTERNAL_ARTIFACTS=1
+      FLAG_ACCEPT_EXTERNAL_ARTIFACTS=1
       shift
       ;;
     --skip-connectivity-check)
@@ -105,61 +108,10 @@ IS_INTERACTIVE=0
 if [[ -t 0 && -t 1 ]]; then
   IS_INTERACTIVE=1
 fi
-
-prompt_missing_inputs() {
-  if [[ -z "${PREFIX}" ]]; then
-    local default_prefix
-    default_prefix="$(pwd)"
-    read -r -p "Install prefix folder [${default_prefix}]: " PREFIX
-    PREFIX="${PREFIX:-${default_prefix}}"
-  fi
-}
-
-prompt_desktop_shortcut_preference() {
-  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
-    return 0
-  fi
-  if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 || "${NO_SHORTCUTS}" -eq 1 ]]; then
-    return 0
-  fi
-
-  local answer
-  read -r -p "Create desktop shortcut in ~/.local/share/applications? [y/N]: " answer
-  case "${answer}" in
-    y|Y|yes|YES)
-      CREATE_DESKTOP_SHORTCUT=1
-      NO_SHORTCUTS=0
-      ;;
-    *)
-      CREATE_DESKTOP_SHORTCUT=0
-      NO_SHORTCUTS=1
-      ;;
-  esac
-}
-
-if [[ -z "${PREFIX}" ]]; then
-  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
-    echo "error: --prefix is required in non-interactive mode." >&2
-    usage >&2
-    exit 1
-  fi
-  prompt_missing_inputs
-fi
-
-[[ -n "${PREFIX}" ]] || { echo "error: --prefix is required" >&2; usage >&2; exit 1; }
-
-# Effective config: normalize prompted and flag values onto the same variables/path.
-EFFECTIVE_PREFIX="${PREFIX}"
-EFFECTIVE_CREATE_DESKTOP_SHORTCUT="${CREATE_DESKTOP_SHORTCUT}"
-EFFECTIVE_NO_SHORTCUTS="${NO_SHORTCUTS}"
-PREFIX="${EFFECTIVE_PREFIX}"
-CREATE_DESKTOP_SHORTCUT="${EFFECTIVE_CREATE_DESKTOP_SHORTCUT}"
-NO_SHORTCUTS="${EFFECTIVE_NO_SHORTCUTS}"
-
-if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
-  echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
-  exit 1
-fi
+NON_INTERACTIVE="${FLAG_NON_INTERACTIVE}"
+RESOLVED_PREFIX="${FLAG_PREFIX}"
+RESOLVED_SHORTCUT_MODE="${FLAG_SHORTCUT_MODE}"
+RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS="${FLAG_ACCEPT_EXTERNAL_ARTIFACTS}"
 
 resolve_absolute_path() {
   python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"
@@ -201,16 +153,65 @@ validate_prefix_writable() {
   }
 }
 
-PREFIX="$(resolve_absolute_path "${PREFIX}")"
-confirm_non_empty_target "${PREFIX}"
-validate_prefix_writable "${PREFIX}"
-echo "Resolved install prefix: ${PREFIX}"
-prompt_desktop_shortcut_preference
+if [[ -z "${RESOLVED_PREFIX}" ]]; then
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    echo "error: --prefix is required in non-interactive mode." >&2
+    usage >&2
+    exit 1
+  fi
+  default_prefix="$(pwd)"
+  read -r -p "Install prefix folder [${default_prefix}]: " RESOLVED_PREFIX
+  RESOLVED_PREFIX="${RESOLVED_PREFIX:-${default_prefix}}"
+fi
 
-if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 && "${NO_SHORTCUTS}" -eq 1 ]]; then
+if [[ -z "${RESOLVED_SHORTCUT_MODE}" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 ]]; then
+  read -r -p "Create desktop shortcut in ~/.local/share/applications? [y/N]: " answer
+  case "${answer}" in
+    y|Y|yes|YES) RESOLVED_SHORTCUT_MODE="desktop" ;;
+    *) RESOLVED_SHORTCUT_MODE="none" ;;
+  esac
+fi
+
+if [[ -z "${RESOLVED_SHORTCUT_MODE}" ]]; then
+  RESOLVED_SHORTCUT_MODE="none"
+fi
+
+if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 && "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
+  echo "WARNING: This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\\bin\\uninstall.cmd (Windows) to clean up fully."
+  echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
+  read -r -p "Proceed with external artifacts? Type 'yes' or 'y' to continue: " answer
+  case "${answer}" in
+    y|Y|yes|YES) RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS=1 ;;
+    *) echo "aborted by user."; exit 1 ;;
+  esac
+fi
+
+[[ -n "${RESOLVED_PREFIX}" ]] || { echo "error: --prefix is required" >&2; usage >&2; exit 1; }
+if [[ "${FLAG_DESKTOP_SHORTCUT}" -eq 1 && "${FLAG_NO_SHORTCUTS}" -eq 1 ]]; then
   echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
   exit 1
 fi
+if [[ "${RESOLVED_SHORTCUT_MODE}" != "desktop" && "${RESOLVED_SHORTCUT_MODE}" != "none" ]]; then
+  echo "error: --desktop-shortcut and --no-shortcuts cannot be used together" >&2
+  exit 1
+fi
+if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" && ("${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0) && "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
+  echo "error: external artifacts selected in non-interactive mode." >&2
+  echo "remediation: rerun with --accept-external-artifacts, or disable shortcut options (for example --no-shortcuts)." >&2
+  exit 1
+fi
+
+PREFIX="$(resolve_absolute_path "${RESOLVED_PREFIX}")"
+CREATE_DESKTOP_SHORTCUT=0
+NO_SHORTCUTS=1
+if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" ]]; then
+  CREATE_DESKTOP_SHORTCUT=1
+  NO_SHORTCUTS=0
+fi
+ACCEPT_EXTERNAL_ARTIFACTS="${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}"
+confirm_non_empty_target "${PREFIX}"
+validate_prefix_writable "${PREFIX}"
+echo "Resolved install prefix: ${PREFIX}"
 
 check_external_artifacts_ack() {
   local has_external_artifacts=0
