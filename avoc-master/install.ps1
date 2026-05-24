@@ -19,6 +19,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$FlagState = [ordered]@{
+    Prefix = $Prefix
+    DesktopShortcut = [bool]$DesktopShortcut
+    NoShortcuts = [bool]$NoShortcuts
+    ShortcutMode = if ($DesktopShortcut) { 'desktop' } elseif ($NoShortcuts) { 'none' } else { '' }
+    NonInteractive = [bool]$NonInteractive
+    AcceptExternalArtifacts = [bool]$AcceptExternalArtifacts
+}
 
 function Show-Usage {
     @'
@@ -35,33 +43,61 @@ Prompt behavior:
 }
 
 $IsInteractive = [System.Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
-if ([string]::IsNullOrWhiteSpace($Prefix)) {
-    if ($NonInteractive -or -not $IsInteractive) {
+
+$ResolvedState = [ordered]@{
+    Prefix = $FlagState.Prefix
+    ShortcutMode = $FlagState.ShortcutMode
+    NonInteractive = $FlagState.NonInteractive
+    AcceptExternalArtifacts = $FlagState.AcceptExternalArtifacts
+}
+
+if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
+    if ($ResolvedState.NonInteractive -or -not $IsInteractive) {
         Show-Usage
         throw 'error: -Prefix is required in non-interactive mode.'
     }
     $defaultPrefix = (Get-Location).Path
     $prefixInput = Read-Host "Install prefix folder [$defaultPrefix]"
-    $Prefix = if ([string]::IsNullOrWhiteSpace($prefixInput)) { $defaultPrefix } else { $prefixInput }
+    $ResolvedState.Prefix = if ([string]::IsNullOrWhiteSpace($prefixInput)) { $defaultPrefix } else { $prefixInput }
 }
-if ([string]::IsNullOrWhiteSpace($Prefix)) {
+
+if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode) -and -not $ResolvedState.NonInteractive -and $IsInteractive) {
+    $answer = Read-Host 'Create desktop shortcut on the Desktop? [y/N]'
+    $ResolvedState.ShortcutMode = if ($answer -match '^(?i:y|yes)$') { 'desktop' } else { 'none' }
+}
+if ([string]::IsNullOrEmpty($ResolvedState.ShortcutMode)) {
+    $ResolvedState.ShortcutMode = 'none'
+}
+
+if ($ResolvedState.ShortcutMode -eq 'desktop' -and -not $ResolvedState.NonInteractive -and $IsInteractive -and -not $ResolvedState.AcceptExternalArtifacts) {
+    Write-Warning 'This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\bin\uninstall.cmd (Windows) to clean up fully.'
+    Write-Host 'See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first.'
+    $ack = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
+    if ($ack -notmatch '^(?i:y|yes)$') {
+        throw 'aborted by user.'
+    }
+    $ResolvedState.AcceptExternalArtifacts = $true
+}
+
+if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
     Show-Usage
     throw 'error: -Prefix is required.'
 }
-
-# Effective config: merge prompted/flag inputs into a single config path.
-$EffectiveConfig = [ordered]@{
-    Prefix = $Prefix
-    DesktopShortcut = [bool]$DesktopShortcut
-    NoShortcuts = [bool]$NoShortcuts
-}
-$Prefix = $EffectiveConfig.Prefix
-$DesktopShortcut = $EffectiveConfig.DesktopShortcut
-$NoShortcuts = $EffectiveConfig.NoShortcuts
-
-if ($DesktopShortcut -and $NoShortcuts) {
+if ($FlagState.DesktopShortcut -and $FlagState.NoShortcuts) {
     throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
 }
+if ($ResolvedState.ShortcutMode -ne 'desktop' -and $ResolvedState.ShortcutMode -ne 'none') {
+    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
+}
+if ($ResolvedState.ShortcutMode -eq 'desktop' -and ($ResolvedState.NonInteractive -or -not $IsInteractive) -and -not $ResolvedState.AcceptExternalArtifacts) {
+    throw "error: external artifacts selected in non-interactive mode.`nremediation: rerun with -AcceptExternalArtifacts, or disable shortcut options (for example -NoShortcuts)."
+}
+
+$Prefix = $ResolvedState.Prefix
+$NonInteractive = $ResolvedState.NonInteractive
+$AcceptExternalArtifacts = $ResolvedState.AcceptExternalArtifacts
+$DesktopShortcut = ($ResolvedState.ShortcutMode -eq 'desktop')
+$NoShortcuts = -not $DesktopShortcut
 
 function Confirm-ExternalArtifactsAcknowledgement {
     $HasExternalArtifacts = $DesktopShortcut
@@ -127,25 +163,6 @@ function Test-PrefixWritable {
     }
 }
 
-function Prompt-DesktopShortcutPreference {
-    if ($NonInteractive -or -not $IsInteractive) {
-        return
-    }
-    if ($DesktopShortcut -or $NoShortcuts) {
-        return
-    }
-
-    $answer = Read-Host 'Create desktop shortcut on the Desktop? [y/N]'
-    if ($answer -match '^(?i:y|yes)$') {
-        $script:DesktopShortcut = $true
-        $script:NoShortcuts = $false
-    }
-    else {
-        $script:DesktopShortcut = $false
-        $script:NoShortcuts = $true
-    }
-}
-
 $ResolvedPrefix = [System.IO.Path]::GetFullPath($Prefix)
 Confirm-NonEmptyPrefix -TargetPath $ResolvedPrefix
 Test-PrefixWritable -TargetPath $ResolvedPrefix
@@ -156,11 +173,6 @@ $BinDir = Join-Path $ResolvedPrefix 'bin'
 $DataDir = Join-Path $ResolvedPrefix 'data'
 $RuntimeDir = Join-Path $ResolvedPrefix 'runtime\python'
 Write-Host "Resolved install prefix : $ResolvedPrefix"
-Prompt-DesktopShortcutPreference
-
-if ($DesktopShortcut -and $NoShortcuts) {
-    throw '-DesktopShortcut and -NoShortcuts cannot be used together.'
-}
 
 Confirm-ExternalArtifactsAcknowledgement
 
