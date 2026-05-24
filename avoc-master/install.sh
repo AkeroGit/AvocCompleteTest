@@ -524,6 +524,38 @@ exec python -m main "\$@"
 LAUNCHER
 chmod +x "${BIN_DIR}/avoc"
 
+cat > "${BIN_DIR}/avoc.fish" <<FISH_LAUNCHER
+#!/usr/bin/env fish
+
+set SCRIPT_DIR (cd -- (dirname -- (status --current-filename)); and pwd)
+set -gx AVOC_HOME (if set -q AVOC_HOME; echo "\$AVOC_HOME"; else; cd -- "\$SCRIPT_DIR/.."; and pwd; end)
+set -gx AVOC_DATA_DIR (if set -q AVOC_DATA_DIR; echo "\$AVOC_DATA_DIR"; else; echo "\$AVOC_HOME/data"; end)
+
+mkdir -p \
+  "\$AVOC_DATA_DIR" \
+  "\$AVOC_DATA_DIR/settings" \
+  "\$AVOC_DATA_DIR/cache" \
+  "\$AVOC_DATA_DIR/logs" \
+  "\$AVOC_DATA_DIR/models" \
+  "\$AVOC_DATA_DIR/pretrain" \
+  "\$AVOC_DATA_DIR/voice_cards"
+
+set -gx XDG_DATA_HOME "\$AVOC_DATA_DIR"
+set -gx XDG_CONFIG_HOME "\$AVOC_DATA_DIR/settings"
+set -gx XDG_CACHE_HOME "\$AVOC_DATA_DIR/cache"
+set -gx XDG_STATE_HOME "\$AVOC_DATA_DIR/logs"
+set -gx TORCH_HOME "\$AVOC_DATA_DIR/cache/torch"
+set -gx HF_HOME "\$AVOC_DATA_DIR/cache/huggingface"
+set -gx HUGGINGFACE_HUB_CACHE "\$AVOC_DATA_DIR/cache/huggingface/hub"
+set -gx TRANSFORMERS_CACHE "\$AVOC_DATA_DIR/cache/huggingface/transformers"
+set -gx HF_DATASETS_CACHE "\$AVOC_DATA_DIR/cache/huggingface/datasets"
+set -gx PIP_CACHE_DIR "\$AVOC_DATA_DIR/cache/pip"
+
+cd "\$AVOC_HOME/app"
+exec "\$AVOC_HOME/.venv/bin/python" -m main \$argv
+FISH_LAUNCHER
+chmod +x "${BIN_DIR}/avoc.fish"
+
 MANIFEST_PATH="${PREFIX}/install-manifest.txt"
 : > "${MANIFEST_PATH}"
 

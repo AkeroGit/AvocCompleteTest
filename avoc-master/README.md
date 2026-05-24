@@ -45,13 +45,13 @@ Open Source and Free for modification.
 AVoc now supports a single install root (`AVOC_HOME`) with this layout:
 
 ```text
-<root>/bin     launchers (for example, bin/avoc)
+<root>/bin     launchers (for example, bin/avoc and optional bin/avoc.fish)
 <root>/.venv   Python virtual environment
 <root>/app     package/runtime files
 <root>/data    models, pretrain, voice cards, settings, cache, logs
 ```
 
-The `bin/avoc` launcher sets:
+The `bin/avoc` launcher (and `bin/avoc.fish`) sets:
 
 - `AVOC_HOME=<root>`
 - `AVOC_DATA_DIR=<root>/data`
@@ -76,10 +76,22 @@ cd AvocCompleteTest/avoc-master
 ./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts
 ```
 
-Run with:
+Run directly:
 
 ```sh
 $HOME/.local/opt/avoc/bin/avoc
+```
+
+Optional fish-native launcher:
+
+```fish
+$HOME/.local/opt/avoc/bin/avoc.fish
+```
+
+Optional PATH setup for fish:
+
+```fish
+set -Ux fish_user_paths $HOME/.local/opt/avoc/bin $fish_user_paths
 ```
 
 For Windows PowerShell:
