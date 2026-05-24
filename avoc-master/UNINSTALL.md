@@ -40,3 +40,10 @@ AVoc uninstall does **not** remove OS-level dependencies and host system compone
 - The operating system audio stack / audio device drivers
 
 Those components are shared system resources and must be managed with your OS or hardware vendor tooling.
+
+If you previously added `<prefix>/bin` to fish universal paths, remove it manually if no longer needed:
+
+```fish
+set -eU fish_user_paths
+set -Ux fish_user_paths (string match -v "<prefix>/bin" $fish_user_paths)
+```
