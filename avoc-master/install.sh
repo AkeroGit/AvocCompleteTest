@@ -112,6 +112,7 @@ NON_INTERACTIVE="${FLAG_NON_INTERACTIVE}"
 RESOLVED_PREFIX="${FLAG_PREFIX}"
 RESOLVED_SHORTCUT_MODE="${FLAG_SHORTCUT_MODE}"
 RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS="${FLAG_ACCEPT_EXTERNAL_ARTIFACTS}"
+RESOLVED_INTEGRATION_MODE="portable"
 PROMPT_FLOW_NEEDED=0
 
 resolve_absolute_path() {
@@ -182,15 +183,31 @@ if [[ -z "${RESOLVED_SHORTCUT_MODE}" ]]; then
   RESOLVED_SHORTCUT_MODE="none"
 fi
 
-if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" && "${NON_INTERACTIVE}" -eq 0 && "${IS_INTERACTIVE}" -eq 1 && "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
-  PROMPT_FLOW_NEEDED=1
-  echo "WARNING: This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\\bin\\uninstall.cmd (Windows) to clean up fully."
+if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" ]]; then
+  echo "WARNING: Selected options create out-of-prefix artifacts."
+  echo "WARNING: uninstall helper is required for full cleanup (<prefix>/bin/uninstall on Linux, <prefix>\\bin\\uninstall.cmd on Windows)."
   echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
-  read -r -p "Proceed with external artifacts? Type 'yes' or 'y' to continue: " answer
-  case "${answer}" in
-    y|Y|yes|YES) RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS=1 ;;
-    *) echo "aborted by user."; exit 1 ;;
-  esac
+  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
+    if [[ "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
+      echo "error: external integrations were requested in non-interactive mode without explicit acknowledgement." >&2
+      echo "remediation: rerun with --accept-external-artifacts to keep integrations, or use --no-shortcuts for portable mode." >&2
+      exit 1
+    fi
+    RESOLVED_INTEGRATION_MODE="integrated"
+  else
+    PROMPT_FLOW_NEEDED=1
+    read -r -p "Keep external integrations enabled? [y/N] " answer
+    case "${answer}" in
+      y|Y|yes|YES)
+        RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS=1
+        RESOLVED_INTEGRATION_MODE="integrated"
+        ;;
+      *)
+        RESOLVED_SHORTCUT_MODE="none"
+        RESOLVED_INTEGRATION_MODE="portable"
+        ;;
+    esac
+  fi
 fi
 
 [[ -n "${RESOLVED_PREFIX}" ]] || { echo "error: --prefix is required" >&2; usage >&2; exit 1; }
@@ -220,37 +237,12 @@ confirm_non_empty_target "${PREFIX}"
 validate_prefix_writable "${PREFIX}"
 echo "Resolved install prefix: ${PREFIX}"
 
-check_external_artifacts_ack() {
-  local has_external_artifacts=0
-  if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
-    has_external_artifacts=1
-  fi
-
-  if [[ "${has_external_artifacts}" -eq 0 ]]; then
-    return 0
-  fi
-
-  echo "WARNING: This install creates files outside <prefix>; use <prefix>/bin/uninstall (Linux) or <prefix>\\bin\\uninstall.cmd (Windows) to clean up fully."
-  echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
-
-  if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
-    if [[ "${ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
-      echo "error: external artifacts selected in non-interactive mode." >&2
-      echo "remediation: rerun with --accept-external-artifacts, or disable shortcut options (for example --no-shortcuts)." >&2
-      exit 1
-    fi
-    return 0
-  fi
-
-  local answer
-  read -r -p "Proceed with external artifacts? Type 'yes' or 'y' to continue: " answer
-  case "${answer}" in
-    y|Y|yes|YES) ;;
-    *) echo "aborted by user."; exit 1 ;;
-  esac
-}
-
-check_external_artifacts_ack
+if [[ "${CREATE_DESKTOP_SHORTCUT}" -eq 1 ]]; then
+  RESOLVED_INTEGRATION_MODE="integrated"
+else
+  RESOLVED_INTEGRATION_MODE="portable"
+fi
+echo "Resulting install mode: ${RESOLVED_INTEGRATION_MODE}"
 
 print_heavy_work_summary() {
   local python_mode shortcut_choice out_of_prefix uninstall_command
