@@ -28,13 +28,13 @@ Installs AVoc into an isolated prefix (Linux only):
   <prefix>/data           writable runtime data
 
 Interactive behavior:
-  - If --prefix is omitted in an interactive terminal, the installer first asks whether to install into the current folder.
-  - Answer yes, or press Enter, to accept the current folder as the install prefix.
+  - If --prefix is omitted in an interactive terminal, the installer first asks whether to install into an AVoc child folder in the current folder.
+  - Answer yes, or press Enter, to accept the AVoc child folder as the install prefix.
   - Answer no to enter a custom install folder path when prompted.
   - Prompt flow is flag-aware: explicit flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - Runtime prompt wording:
-      Install AVoc in the current folder (<default-prefix>)? [Y/n]
+      Install AVoc into a new folder here (<default-prefix>)? [Y/n]
       Enter install folder path, or press Ctrl+C to cancel
       Create shortcut integration? [y/N]
       Proceed with external artifacts? [y/N]
@@ -178,9 +178,10 @@ if [[ -z "${RESOLVED_PREFIX}" ]]; then
     usage >&2
     exit 1
   fi
-  default_prefix="$(pwd)"
+  default_parent="$(pwd)"
+  default_prefix="${default_parent}/AVoc"
   while true; do
-    read -r -p "Install AVoc in the current folder (${default_prefix})? [Y/n]: " answer
+    read -r -p "Install AVoc into a new folder here (${default_prefix})? [Y/n]: " answer
     answer_lc="${answer,,}"
     case "${answer_lc}" in
       ""|y|yes)
