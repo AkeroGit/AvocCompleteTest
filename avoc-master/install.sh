@@ -527,9 +527,18 @@ chmod +x "${BIN_DIR}/avoc"
 cat > "${BIN_DIR}/avoc.fish" <<FISH_LAUNCHER
 #!/usr/bin/env fish
 
-set SCRIPT_DIR (cd -- (dirname -- (status --current-filename)); and pwd)
-set -gx AVOC_HOME (if set -q AVOC_HOME; echo "\$AVOC_HOME"; else; cd -- "\$SCRIPT_DIR/.."; and pwd; end)
-set -gx AVOC_DATA_DIR (if set -q AVOC_DATA_DIR; echo "\$AVOC_DATA_DIR"; else; echo "\$AVOC_HOME/data"; end)
+set SCRIPT_DIR (cd -- (dirname -- (status current-filename)); and pwd)
+if not set -q AVOC_HOME
+  set -gx AVOC_HOME (cd -- "\$SCRIPT_DIR/.."; and pwd)
+else
+  set -gx AVOC_HOME "\$AVOC_HOME"
+end
+
+if not set -q AVOC_DATA_DIR
+  set -gx AVOC_DATA_DIR "\$AVOC_HOME/data"
+else
+  set -gx AVOC_DATA_DIR "\$AVOC_DATA_DIR"
+end
 
 mkdir -p \
   "\$AVOC_DATA_DIR" \
