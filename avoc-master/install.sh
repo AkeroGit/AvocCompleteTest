@@ -29,11 +29,12 @@ Installs AVoc into an isolated prefix (Linux only):
 
 Interactive behavior:
   - If --prefix is omitted in an interactive terminal, installer prompts for it.
-  - Default install location is the current execution directory (pwd) when prompt is accepted blank.
+  - Default install location is the current execution directory (pwd) when the current-folder prompt is accepted.
   - Prompt flow is flag-aware: explicit flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - Runtime prompt wording:
-      Install prefix folder [<default-prefix>]
+      Install AVoc in the current folder (<default-prefix>)? [Y/n]
+      Enter install folder path, or press Ctrl+C to cancel
       Create shortcut integration? [y/N]
       Proceed with external artifacts? [y/N]
       Target prefix is not empty (<prefix>). Continue anyway? [y/N]
@@ -177,8 +178,29 @@ if [[ -z "${RESOLVED_PREFIX}" ]]; then
     exit 1
   fi
   default_prefix="$(pwd)"
-  read -r -p "Install prefix folder [${default_prefix}]: " RESOLVED_PREFIX
-  RESOLVED_PREFIX="${RESOLVED_PREFIX:-${default_prefix}}"
+  while true; do
+    read -r -p "Install AVoc in the current folder (${default_prefix})? [Y/n]: " answer
+    answer_lc="${answer,,}"
+    case "${answer_lc}" in
+      ""|y|yes)
+        RESOLVED_PREFIX="${default_prefix}"
+        break
+        ;;
+      n|no)
+        while [[ -z "${RESOLVED_PREFIX}" ]]; do
+          read -r -p "Enter install folder path, or press Ctrl+C to cancel: " RESOLVED_PREFIX
+          if [[ -z "${RESOLVED_PREFIX}" ]]; then
+            echo "error: install folder path cannot be blank." >&2
+            echo "remediation: enter a folder path, or press Ctrl+C to cancel." >&2
+          fi
+        done
+        break
+        ;;
+      *)
+        echo "Please answer yes or no." >&2
+        ;;
+    esac
+  done
 fi
 
 PLANNED_DESKTOP_SHORTCUT_PATH="${HOME}/.local/share/applications/AVoc-$(basename "$(resolve_absolute_path "${RESOLVED_PREFIX}")").desktop"

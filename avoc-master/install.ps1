@@ -56,7 +56,8 @@ Prompt behavior:
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
   - Runtime prompt wording:
-      Install prefix folder [<default-prefix>]
+      Install AVoc in the current folder (<default-prefix>)? [Y/n]
+      Enter install folder path, or press Ctrl+C to cancel
       Create shortcut integration? [y/N]
       Proceed with external artifacts? [y/N]
       Target prefix is not empty (<prefix>). Continue anyway? [y/N]
@@ -82,8 +83,26 @@ if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
         throw 'error: -Prefix is required in non-interactive mode.'
     }
     $defaultPrefix = (Get-Location).Path
-    $prefixInput = Read-Host "Install prefix folder [$defaultPrefix]"
-    $ResolvedState.Prefix = if ([string]::IsNullOrWhiteSpace($prefixInput)) { $defaultPrefix } else { $prefixInput }
+    while ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
+        $answer = Read-Host "Install AVoc in the current folder ($defaultPrefix)? [Y/n]"
+        if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^(?i:y|yes)$') {
+            $ResolvedState.Prefix = $defaultPrefix
+            break
+        }
+        if ($answer -match '^(?i:n|no)$') {
+            while ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
+                $prefixInput = Read-Host 'Enter install folder path, or press Ctrl+C to cancel'
+                if ([string]::IsNullOrWhiteSpace($prefixInput)) {
+                    Write-Warning 'Install folder path cannot be blank.'
+                    Write-Host 'Remediation: enter a folder path, or press Ctrl+C to cancel.'
+                    continue
+                }
+                $ResolvedState.Prefix = $prefixInput
+            }
+            break
+        }
+        Write-Host 'Please answer yes or no.'
+    }
 }
 
 $PlannedShortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'AVoc.lnk'
