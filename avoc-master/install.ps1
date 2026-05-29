@@ -594,7 +594,13 @@ if ($DesktopShortcut) {
     $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
     $Shortcut.TargetPath = Join-Path $BinDir 'avoc.cmd'
     $Shortcut.WorkingDirectory = $ResolvedPrefix
-    $Shortcut.IconLocation = (Join-Path $AppDir 'src\avoc\AVoc.svg')
+    $ShortcutIconPath = Join-Path $AppDir 'src\avoc\AVoc.ico'
+    if (Test-Path -LiteralPath $ShortcutIconPath -PathType Leaf) {
+        $Shortcut.IconLocation = $ShortcutIconPath
+    }
+    else {
+        Write-Warning "Shortcut icon not found at $ShortcutIconPath. Creating shortcut without a custom icon."
+    }
     $Shortcut.Save()
     Add-Content -Path $ManifestPath -Value $ShortcutPath
     Write-Host "Created desktop shortcut: $ShortcutPath"
