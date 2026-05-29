@@ -76,7 +76,7 @@ cd AvocCompleteTest/avoc-master
 ./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts
 ```
 
-#### Interactive install into the current folder
+#### Interactive install with a suggested folder
 
 In an interactive terminal, you can omit the prefix and let the installer prompt for the target folder:
 
@@ -88,7 +88,7 @@ In an interactive terminal, you can omit the prefix and let the installer prompt
 .\install.ps1 -NoShortcuts
 ```
 
-The installer first asks whether to install into the current folder. Press Enter to accept the current folder, or type `n` to enter another folder.
+If no prefix is supplied interactively, the installer proposes a new child folder under the current working directory. The default is usually `./AVoc`, or a numbered variant such as `./AVoc-1` if needed. Press Enter to accept the proposed child folder, or type `n` to enter a custom folder path.
 
 Run directly:
 
