@@ -36,8 +36,9 @@ Usage:
 Parameters:
   -Prefix <folder>
       Target install folder.
-      Optional in interactive mode: if omitted, the installer starts the default-folder prompt flow.
-      Accept the AVoc child folder in the current folder with yes/Enter, or answer no to enter a custom folder path.
+      Optional in interactive mode: if omitted, the installer proposes a new child folder under the current working directory.
+      The default is usually ./AVoc, or a numbered variant such as ./AVoc-1 if needed.
+      Press Enter to accept the proposed child folder, or type 'n' to enter a custom folder path.
 
   -DesktopShortcut
       Enable shortcut integration (creates external artifact, for example Desktop\AVoc.lnk).
@@ -52,9 +53,10 @@ Parameters:
       Required in non-interactive mode when -DesktopShortcut (or any external artifact flow) is enabled.
 
 Prompt behavior:
-  - If -Prefix is omitted in an interactive terminal, the installer first asks whether to install into an AVoc child folder in the current folder.
-  - Answer yes, or press Enter, to accept the AVoc child folder as the install prefix.
-  - Answer no to enter a custom install folder path when prompted.
+  - If -Prefix is omitted in an interactive terminal, the installer proposes a new child folder under the current working directory.
+  - The proposed default is usually ./AVoc, or a numbered variant such as ./AVoc-1 if needed.
+  - Press Enter to accept the proposed child folder as the install prefix.
+  - Type 'n' to enter a custom install folder path when prompted.
   - Prompt flow is flag-aware: explicitly passed flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
