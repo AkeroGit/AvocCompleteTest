@@ -53,8 +53,14 @@ Parameters:
 
 Prompt behavior:
   - Prompt flow is flag-aware: explicitly passed flags skip matching prompts.
-  - If target prefix already exists and is non-empty, interactive mode asks for confirmation.
+  - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
+  - Runtime prompt wording:
+      Install prefix folder [<default-prefix>]
+      Create shortcut integration? [y/N]
+      Proceed with external artifacts? [y/N]
+      Target prefix is not empty (<prefix>). Continue anyway? [y/N]
+      Proceed? [y/N]
 '@ | Write-Host
 }
 
@@ -129,7 +135,7 @@ function Confirm-ExternalArtifactsAcknowledgement {
         return
     }
 
-    $answer = Read-Host "Proceed with external artifacts? Type 'yes' or 'y' to continue"
+    $answer = Read-Host 'Proceed with external artifacts? [y/N]'
     if ($answer -notmatch '^(?i:y|yes)$') {
         Write-Host 'Declined external artifacts. Switching to portable mode (no shortcuts) per UNINSTALL.md terminology.'
         $script:DesktopShortcut = $false
@@ -221,8 +227,8 @@ function Show-HeavyWorkSummary {
         return
     }
 
-    $answer = Read-Host 'Proceed? [Y/n]'
-    if ($answer -and $answer -notmatch '^(?i:y|yes)$') {
+    $answer = Read-Host 'Proceed? [y/N]'
+    if ($answer -notmatch '^(?i:y|yes)$') {
         throw 'aborted by user.'
     }
 }

@@ -31,7 +31,13 @@ Interactive behavior:
   - If --prefix is omitted in an interactive terminal, installer prompts for it.
   - Default install location is the current execution directory (pwd) when prompt is accepted blank.
   - Prompt flow is flag-aware: explicit flags skip matching prompts.
-  - If target prefix already exists and is non-empty, interactive mode asks for confirmation.
+  - [y/N] prompts default to No; type 'y' or 'yes' to continue.
+  - Runtime prompt wording:
+      Install prefix folder [<default-prefix>]
+      Create shortcut integration? [y/N]
+      Proceed with external artifacts? [y/N]
+      Target prefix is not empty (<prefix>). Continue anyway? [y/N]
+      Proceed? [y/N]
 
 Options:
   --prefix <folder>     Target install folder (optional in interactive mode; required in non-interactive mode)
@@ -197,14 +203,14 @@ if [[ "${RESOLVED_SHORTCUT_MODE}" == "desktop" ]]; then
   echo "See UNINSTALL.md (Integrated mode): run the uninstall helper from the install prefix so tracked artifacts are cleaned up first."
   if [[ "${NON_INTERACTIVE}" -eq 1 || "${IS_INTERACTIVE}" -eq 0 ]]; then
     if [[ "${RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS}" -ne 1 ]]; then
-      echo "error: external integrations were requested in non-interactive mode without explicit acknowledgement." >&2
-      echo "remediation: rerun with --accept-external-artifacts to keep integrations, or use --no-shortcuts for portable mode." >&2
+      echo "error: external artifacts selected in non-interactive mode." >&2
+      echo "remediation: rerun with --accept-external-artifacts, or disable shortcut options (for example --no-shortcuts)." >&2
       exit 1
     fi
     RESOLVED_INTEGRATION_MODE="integrated"
   else
     PROMPT_FLOW_NEEDED=1
-    read -r -p "Keep external integrations enabled? [y/N] " answer
+    read -r -p "Proceed with external artifacts? [y/N]: " answer
     case "${answer}" in
       y|Y|yes|YES)
         RESOLVED_ACCEPT_EXTERNAL_ARTIFACTS=1
@@ -284,7 +290,7 @@ print_heavy_work_summary() {
   fi
 
   local answer
-  read -r -p "Proceed? [y/N] " answer
+  read -r -p "Proceed? [y/N]: " answer
   case "${answer}" in
     y|Y|yes|YES) ;;
     *) echo "aborted by user."; exit 1 ;;
