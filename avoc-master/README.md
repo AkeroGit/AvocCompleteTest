@@ -82,7 +82,12 @@ Run directly:
 $HOME/.local/opt/avoc/bin/avoc
 ```
 
-Optional fish-native launcher:
+Launch paths:
+
+- universal: `<prefix>/bin/avoc`
+- fish-native: `<prefix>/bin/avoc.fish`
+
+Example fish-native launcher:
 
 ```fish
 $HOME/.local/opt/avoc/bin/avoc.fish
