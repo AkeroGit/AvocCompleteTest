@@ -135,6 +135,27 @@ resolve_absolute_path() {
   python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"
 }
 
+choose_default_prefix() {
+  local parent="$1"
+  local candidate
+  local suffix=0
+
+  while true; do
+    if [[ "${suffix}" -eq 0 ]]; then
+      candidate="${parent}/AVoc"
+    else
+      candidate="${parent}/AVoc-${suffix}"
+    fi
+
+    if [[ ! -d "${candidate}" || -z "$(find "${candidate}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+
+    suffix=$((suffix + 1))
+  done
+}
+
 confirm_non_empty_target() {
   local target="$1"
   if [[ ! -d "${target}" ]]; then
@@ -179,7 +200,7 @@ if [[ -z "${RESOLVED_PREFIX}" ]]; then
     exit 1
   fi
   default_parent="$(pwd)"
-  default_prefix="${default_parent}/AVoc"
+  default_prefix="$(choose_default_prefix "${default_parent}")"
   while true; do
     read -r -p "Install AVoc into a new folder here (${default_prefix})? [Y/n]: " answer
     answer_lc="${answer,,}"
