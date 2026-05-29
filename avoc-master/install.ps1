@@ -36,8 +36,8 @@ Usage:
 Parameters:
   -Prefix <folder>
       Target install folder.
-      Optional in interactive mode: if omitted, the installer starts the current-folder prompt flow.
-      Accept the current folder with yes/Enter, or answer no to enter a custom folder path.
+      Optional in interactive mode: if omitted, the installer starts the default-folder prompt flow.
+      Accept the AVoc child folder in the current folder with yes/Enter, or answer no to enter a custom folder path.
 
   -DesktopShortcut
       Enable shortcut integration (creates external artifact, for example Desktop\AVoc.lnk).
@@ -52,14 +52,14 @@ Parameters:
       Required in non-interactive mode when -DesktopShortcut (or any external artifact flow) is enabled.
 
 Prompt behavior:
-  - If -Prefix is omitted in an interactive terminal, the installer first asks whether to install into the current folder.
-  - Answer yes, or press Enter, to accept the current folder as the install prefix.
+  - If -Prefix is omitted in an interactive terminal, the installer first asks whether to install into an AVoc child folder in the current folder.
+  - Answer yes, or press Enter, to accept the AVoc child folder as the install prefix.
   - Answer no to enter a custom install folder path when prompted.
   - Prompt flow is flag-aware: explicitly passed flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
   - Runtime prompt wording:
-      Install AVoc in the current folder (<default-prefix>)? [Y/n]
+      Install AVoc into a new folder here (<default-prefix>)? [Y/n]
       Enter install folder path, or press Ctrl+C to cancel
       Create shortcut integration? [y/N]
       Proceed with external artifacts? [y/N]
@@ -85,9 +85,10 @@ if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
         Show-Usage
         throw 'error: -Prefix is required in non-interactive mode.'
     }
-    $defaultPrefix = (Get-Location).Path
+    $defaultParent = (Get-Location).Path
+    $defaultPrefix = Join-Path $defaultParent 'AVoc'
     while ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
-        $answer = Read-Host "Install AVoc in the current folder ($defaultPrefix)? [Y/n]"
+        $answer = Read-Host "Install AVoc into a new folder here ($defaultPrefix)? [Y/n]"
         if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^(?i:y|yes)$') {
             $ResolvedState.Prefix = $defaultPrefix
             break
