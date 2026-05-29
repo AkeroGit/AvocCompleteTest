@@ -28,8 +28,9 @@ Installs AVoc into an isolated prefix (Linux only):
   <prefix>/data           writable runtime data
 
 Interactive behavior:
-  - If --prefix is omitted in an interactive terminal, installer prompts for it.
-  - Default install location is the current execution directory (pwd) when the current-folder prompt is accepted.
+  - If --prefix is omitted in an interactive terminal, the installer first asks whether to install into the current folder.
+  - Answer yes, or press Enter, to accept the current folder as the install prefix.
+  - Answer no to enter a custom install folder path when prompted.
   - Prompt flow is flag-aware: explicit flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - Runtime prompt wording:

@@ -36,8 +36,8 @@ Usage:
 Parameters:
   -Prefix <folder>
       Target install folder.
-      Optional in interactive mode: if omitted, installer prompts for it.
-      Default install location is the current execution directory when prompt input is blank.
+      Optional in interactive mode: if omitted, the installer starts the current-folder prompt flow.
+      Accept the current folder with yes/Enter, or answer no to enter a custom folder path.
 
   -DesktopShortcut
       Enable shortcut integration (creates external artifact, for example Desktop\AVoc.lnk).
@@ -52,6 +52,9 @@ Parameters:
       Required in non-interactive mode when -DesktopShortcut (or any external artifact flow) is enabled.
 
 Prompt behavior:
+  - If -Prefix is omitted in an interactive terminal, the installer first asks whether to install into the current folder.
+  - Answer yes, or press Enter, to accept the current folder as the install prefix.
+  - Answer no to enter a custom install folder path when prompted.
   - Prompt flow is flag-aware: explicitly passed flags skip matching prompts.
   - [y/N] prompts default to No; type 'y' or 'yes' to continue.
   - In non-interactive mode (CI/piped input) or with -NonInteractive, prompts are disabled.
