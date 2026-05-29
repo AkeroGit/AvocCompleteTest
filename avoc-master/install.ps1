@@ -79,6 +79,31 @@ $ResolvedState = [ordered]@{
     AcceptExternalArtifacts = $FlagState.AcceptExternalArtifacts
 }
 
+function Get-DefaultInstallPrefix {
+    param([Parameter(Mandatory = $true)][string]$ParentPath)
+
+    $suffix = 0
+    while ($true) {
+        if ($suffix -eq 0) {
+            $candidate = Join-Path $ParentPath 'AVoc'
+        }
+        else {
+            $candidate = Join-Path $ParentPath "AVoc-$suffix"
+        }
+
+        if (-not (Test-Path -LiteralPath $candidate -PathType Container)) {
+            return $candidate
+        }
+
+        $hasContent = Get-ChildItem -LiteralPath $candidate -Force | Select-Object -First 1
+        if (-not $hasContent) {
+            return $candidate
+        }
+
+        $suffix++
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
     $PromptFlowNeeded = $true
     if ($ResolvedState.NonInteractive -or -not $IsInteractive) {
@@ -86,7 +111,7 @@ if ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
         throw 'error: -Prefix is required in non-interactive mode.'
     }
     $defaultParent = (Get-Location).Path
-    $defaultPrefix = Join-Path $defaultParent 'AVoc'
+    $defaultPrefix = Get-DefaultInstallPrefix -ParentPath $defaultParent
     while ([string]::IsNullOrWhiteSpace($ResolvedState.Prefix)) {
         $answer = Read-Host "Install AVoc into a new folder here ($defaultPrefix)? [Y/n]"
         if ([string]::IsNullOrWhiteSpace($answer) -or $answer -match '^(?i:y|yes)$') {
