@@ -68,13 +68,27 @@ and redirects runtime write locations (`QSettings`, model storage, cache/state h
 
 Requires Python 3.12 (or compatible), `venv`, and build tools needed by the pinned dependencies.
 
-After prerequisites are in place, install AVoc into any target folder with one command:
+After prerequisites are in place, install AVoc into any target folder with one command. The explicit `--prefix` / `-Prefix` examples below are the recommended scripted or non-interactive style:
 
 ```sh
 git clone https://github.com/AkeroGit/AvocCompleteTest
 cd AvocCompleteTest/avoc-master
 ./install.sh --prefix "$HOME/.local/opt/avoc" --no-shortcuts
 ```
+
+#### Interactive install into the current folder
+
+In an interactive terminal, you can omit the prefix and let the installer prompt for the target folder:
+
+```sh
+./install.sh --no-shortcuts
+```
+
+```powershell
+.\install.ps1 -NoShortcuts
+```
+
+The installer first asks whether to install into the current folder. Press Enter to accept the current folder, or type `n` to enter another folder.
 
 Run directly:
 
